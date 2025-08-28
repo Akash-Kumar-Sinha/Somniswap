@@ -3,9 +3,9 @@ pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Pool} from "../src/Pool.sol";
-import "../src/PoolToken/AKSLPToken.sol";
-import "./mocks/ERC20Mock.sol";
-import "../src/PoolToken/IAKSLPToken.sol";
+import {AKSLPToken} from "../src/PoolToken/AKSLPToken.sol";
+import {ERC20Mock} from "./mocks/ERC20Mock.sol";
+import {IAKSLPToken} from "../src/PoolToken/IAKSLPToken.sol";
 
 contract PoolTest is Test {
     Pool pool;
@@ -23,7 +23,7 @@ contract PoolTest is Test {
 
         usdt = new ERC20Mock("USDT", "USDT");
         stt = new ERC20Mock("STT", "STT");
-        pooltoken = new AKSLPToken();
+        pooltoken = new AKSLPToken("Aks LP USDT-STT", "AKS-USDT-STT");
         pool = new Pool(address(usdt), address(stt), address(pooltoken));
 
         usdt.mint(user1, 1000);
@@ -93,7 +93,7 @@ contract PoolTest is Test {
 
         uint256 tokenShare = pool.getPoolTokenShare(user1);
         pooltoken.approve(address(pool), tokenShare);
-        pool.pullLiquidityAsLP();
+        pool.pullLiquidityAsLp();
 
         user1bal= usdt.balanceOf(user1);
         user1sttbal = stt.balanceOf(user1);
@@ -111,7 +111,7 @@ contract PoolTest is Test {
 
         tokenShare = pool.getPoolTokenShare(user2);
         pooltoken.approve(address(pool), tokenShare);
-        pool.pullLiquidityAsLP();
+        pool.pullLiquidityAsLp();
 
         user1bal= usdt.balanceOf(user2);
         user1sttbal = stt.balanceOf(user2);

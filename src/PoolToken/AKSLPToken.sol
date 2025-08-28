@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./IAKSLPToken.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IAKSLPToken} from "./IAKSLPToken.sol";
 
 contract AKSLPToken is ERC20, IAKSLPToken{
 
-    constructor() ERC20("AKSLPERC20", "AKSLP") {}
+     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address to, uint256 amount) public {
         _mint(to, amount);
