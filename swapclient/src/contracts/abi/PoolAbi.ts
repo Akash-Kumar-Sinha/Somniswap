@@ -1,0 +1,213 @@
+export const PoolAbi = [
+  {
+    type: "constructor",
+    inputs: [
+      { name: "_tokenA", type: "address", internalType: "address" },
+      { name: "_tokenB", type: "address", internalType: "address" },
+      { name: "_lpToken", type: "address", internalType: "address" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "FEE_RATE",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "addLiquidity",
+    inputs: [
+      { name: "amountA", type: "uint256", internalType: "uint256" },
+      { name: "amountB", type: "uint256", internalType: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "getPoolReserves",
+    inputs: [],
+    outputs: [
+      { name: "reserveA", type: "uint256", internalType: "uint256" },
+      { name: "reserveB", type: "uint256", internalType: "uint256" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPoolSwapToken",
+    inputs: [],
+    outputs: [
+      { name: "", type: "address", internalType: "address" },
+      { name: "", type: "address", internalType: "address" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPoolTokenAddress",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPoolTokenShare",
+    inputs: [{ name: "user", type: "address", internalType: "address" }],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPoolTokenSupply",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "lpToken",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "contract IAKSLPToken",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "pullLiquidityAsLp",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "swap",
+    inputs: [
+      { name: "tokenIn", type: "address", internalType: "address" },
+      { name: "tokenOut", type: "address", internalType: "address" },
+      { name: "amountIn", type: "uint256", internalType: "uint256" },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256", internalType: "uint256" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "tokenA",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "contract IERC20" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "tokenB",
+    inputs: [],
+    outputs: [{ name: "", type: "address", internalType: "contract IERC20" }],
+    stateMutability: "view",
+  },
+  {
+    type: "event",
+    name: "LiquidityAdded",
+    inputs: [
+      {
+        name: "provider",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "amountA",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "amountB",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "lpMinted",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "LiquidityPulled",
+    inputs: [
+      {
+        name: "provider",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "lpBurned",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "amountA",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "amountB",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "Swap",
+    inputs: [
+      {
+        name: "swapper",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "fromToken",
+        type: "address",
+        indexed: false,
+        internalType: "address",
+      },
+      {
+        name: "amountIn",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "toToken",
+        type: "address",
+        indexed: false,
+        internalType: "address",
+      },
+      {
+        name: "amountOut",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+];

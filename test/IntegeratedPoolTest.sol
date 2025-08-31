@@ -61,12 +61,14 @@ contract IntegratedPoolManagerTest is Test {
     function testCreatePool() public {
         vm.expectEmit(true, true, false, false);
         emit PoolCreated(address(tokenA), address(tokenB), address(0), address(0));
-        
-        address poolAddr = poolManager.createPool(address(tokenA), address(tokenB));
-        
+
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
+
         assertTrue(poolAddr != address(0), "Pool address should not be zero");
-        assertEq(poolManager.getPool(address(tokenA), address(tokenB)), poolAddr);
-        assertEq(poolManager.getPool(address(tokenB), address(tokenA)), poolAddr);
+        assertEq(poolManager.getPoolByTokens(address(tokenA), address(tokenB)), poolAddr);
+        assertEq(poolManager.getPoolByTokens(address(tokenB), address(tokenA)), poolAddr);
         assertEq(poolManager.allPoolsLength(), 1);
         assertEq(poolManager.getPoolByIndex(0), poolAddr);
         
@@ -74,11 +76,19 @@ contract IntegratedPoolManagerTest is Test {
     }
     
     function testCreateMultiplePools() public {
-        address pool1 = poolManager.createPool(address(tokenA), address(tokenB));
-        address pool2 = poolManager.createPool(address(tokenC), address(tokenD));
-        address pool3 = poolManager.createPool(address(tokenA), address(tokenC));
-        address pool4 = poolManager.createPool(address(tokenB), address(tokenE));
-        
+        address pool1 = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
+        address pool2 = poolManager.createPool(
+            "Token C", "TKC", address(tokenC), "Token D", "TKD", address(tokenD)
+        );
+        address pool3 = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token C", "TKC", address(tokenC)
+        );
+        address pool4 = poolManager.createPool(
+            "Token B", "TKB", address(tokenB), "Token E", "TKE", address(tokenE)
+        );
+
         assertTrue(pool1 != pool2 && pool1 != pool3 && pool1 != pool4);
         assertTrue(pool2 != pool3 && pool2 != pool4);
         assertTrue(pool3 != pool4);
@@ -92,29 +102,41 @@ contract IntegratedPoolManagerTest is Test {
     
     function testCreatePoolFailures() public {
         vm.expectRevert("Identical tokens");
-        poolManager.createPool(address(tokenA), address(tokenA));
-        
-        poolManager.createPool(address(tokenA), address(tokenB));
-        
+        poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token A", "TKA", address(tokenA)
+        );
+
+        poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
+
         vm.expectRevert("Pool already exists");
-        poolManager.createPool(address(tokenA), address(tokenB));
-        
+        poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
+
         vm.expectRevert("Pool already exists");
-        poolManager.createPool(address(tokenB), address(tokenA));
+        poolManager.createPool(
+            "Token B", "TKB", address(tokenB), "Token A", "TKA", address(tokenA)
+        );
     }
     
     function testGetPoolByIndexOutOfBounds() public {
         vm.expectRevert("Index out of bounds");
         poolManager.getPoolByIndex(0);
-        
-        poolManager.createPool(address(tokenA), address(tokenB));
-        
+
+        poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
+
         vm.expectRevert("Index out of bounds");
         poolManager.getPoolByIndex(1);
     }
     
     function testPoolCreationAndBasicInfo() public {
-        address poolAddr = poolManager.createPool(address(tokenA), address(tokenB));
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
         Pool pool = Pool(poolAddr);
         
         address lpTokenAddr = pool.getPoolTokenAddress();
@@ -136,7 +158,9 @@ contract IntegratedPoolManagerTest is Test {
     }
     
     function testAddLiquidityToCreatedPool() public {
-        address poolAddr = poolManager.createPool(address(tokenA), address(tokenB));
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
         Pool pool = Pool(poolAddr);
         
         _approvePoolForUser(user1, poolAddr);
@@ -160,7 +184,9 @@ contract IntegratedPoolManagerTest is Test {
     }
     
     function testSwapInCreatedPool() public {
-        address poolAddr = poolManager.createPool(address(tokenA), address(tokenB));
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
         Pool pool = Pool(poolAddr);
         
         (address poolTokenA, address poolTokenB) = pool.getPoolSwapToken();
@@ -188,7 +214,9 @@ contract IntegratedPoolManagerTest is Test {
     }
     
     function testLiquidityRemovalFromCreatedPool() public {
-        address poolAddr = poolManager.createPool(address(tokenA), address(tokenB));
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
         Pool pool = Pool(poolAddr);
         
         (address poolTokenA, address poolTokenB) = pool.getPoolSwapToken();
@@ -219,9 +247,13 @@ contract IntegratedPoolManagerTest is Test {
     }
     
     function testMultiplePoolsWithDifferentOperations() public {
-        address pool1Addr = poolManager.createPool(address(tokenA), address(tokenB));
-        address pool2Addr = poolManager.createPool(address(tokenC), address(tokenD));
-        
+        address pool1Addr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
+        address pool2Addr = poolManager.createPool(
+            "Token C", "TKC", address(tokenC), "Token D", "TKD", address(tokenD)
+        );
+
         Pool pool1 = Pool(pool1Addr);
         Pool pool2 = Pool(pool2Addr);
         
@@ -257,7 +289,9 @@ contract IntegratedPoolManagerTest is Test {
     }
     
     function testPoolManagerAndPoolIntegrationWithFees() public {
-        address poolAddr = poolManager.createPool(address(tokenA), address(tokenB));
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
         Pool pool = Pool(poolAddr);
         
         (address poolTokenA, address poolTokenB) = pool.getPoolSwapToken();
@@ -289,16 +323,17 @@ contract IntegratedPoolManagerTest is Test {
     function testPoolManagerWithMaxPools() public {
         address[] memory pools = new address[](10);
         
-        pools[0] = poolManager.createPool(address(tokenA), address(tokenB));
-        pools[1] = poolManager.createPool(address(tokenA), address(tokenC));
-        pools[2] = poolManager.createPool(address(tokenA), address(tokenD));
-        pools[3] = poolManager.createPool(address(tokenB), address(tokenC));
-        pools[4] = poolManager.createPool(address(tokenB), address(tokenD));
-        pools[5] = poolManager.createPool(address(tokenC), address(tokenD));
-        pools[6] = poolManager.createPool(address(tokenA), address(tokenE));
-        pools[7] = poolManager.createPool(address(tokenB), address(tokenE));
-        pools[8] = poolManager.createPool(address(tokenC), address(tokenE));
-        pools[9] = poolManager.createPool(address(tokenD), address(tokenE));
+        pools[0] = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB));
+        pools[1] = poolManager.createPool("Token A", "TKA", address(tokenA), "Token C", "TKC", address(tokenC));
+        pools[2] = poolManager.createPool("Token A", "TKA", address(tokenA), "Token D", "TKD", address(tokenD));
+        pools[3] = poolManager.createPool("Token B", "TKB", address(tokenB), "Token C", "TKC", address(tokenC));
+        pools[4] = poolManager.createPool("Token B", "TKB", address(tokenB), "Token D", "TKD", address(tokenD));
+        pools[5] = poolManager.createPool("Token C", "TKC", address(tokenC), "Token D", "TKD", address(tokenD));
+        pools[6] = poolManager.createPool("Token A", "TKA", address(tokenA), "Token E", "TKE", address(tokenE));
+        pools[7] = poolManager.createPool("Token B", "TKB", address(tokenB), "Token E", "TKE", address(tokenE));
+        pools[8] = poolManager.createPool("Token C", "TKC", address(tokenC), "Token E", "TKE", address(tokenE));
+        pools[9] = poolManager.createPool("Token D", "TKD", address(tokenD), "Token E", "TKE", address(tokenE));
         
         assertEq(poolManager.allPoolsLength(), 10);
         
@@ -317,7 +352,9 @@ contract IntegratedPoolManagerTest is Test {
     function testCompleteWorkflow() public {
         console.log("=== Starting Complete Workflow Test ===");
         
-        address poolAddr = poolManager.createPool(address(tokenA), address(tokenB));
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
         Pool pool = Pool(poolAddr);
         console.log("Step 1: Pool created at", poolAddr);
         

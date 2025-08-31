@@ -7,15 +7,30 @@ import {Helper} from "./Helper/Helper.sol";
 import {IPoolManager} from "./Helper/IPoolManager.sol";
 
 contract PoolManager is IPoolManager {
-    mapping(address => mapping(address => address)) public getPool;
+    mapping(address => mapping(address => address)) public getPoolByTokens;
+    mapping(address => address[2]) public getTokensByPool;
+
+    struct TokenInfo {
+        string name;
+        string symbol;
+        address tokenAddress;
+    }
+
+    TokenInfo[] public allTokens;
+    mapping(address => TokenInfo) public getTokenInfo;
     address[] public allPools;
 
+
     function createPool(
+        string memory tokenAName,
+        string memory tokenASymbol,
         address tokenA,
+        string memory tokenBName,
+        string memory tokenBSymbol,
         address tokenB
     ) external returns (address poolAddr) {
         require(tokenA != tokenB, "Identical tokens");
-        require(getPool[tokenA][tokenB] == address(0), "Pool already exists");
+        require(getPoolByTokens[tokenA][tokenB] == address(0), "Pool already exists");
 
         string memory name = string(
             abi.encodePacked("Aks LP ", Helper._shortAddr(tokenA), "-", Helper._shortAddr(tokenB))
@@ -30,8 +45,18 @@ contract PoolManager is IPoolManager {
         Pool pool = new Pool(tokenA, tokenB, lpToken);
         poolAddr = address(pool);
 
-        getPool[tokenA][tokenB] = poolAddr;
-        getPool[tokenB][tokenA] = poolAddr;
+        getPoolByTokens[tokenA][tokenB] = poolAddr;
+        getPoolByTokens[tokenB][tokenA] = poolAddr;
+        getTokensByPool[poolAddr] = [tokenA, tokenB];
+
+        if (getTokenInfo[tokenA].tokenAddress == address(0)) {
+            getTokenInfo[tokenA] = TokenInfo(tokenAName, tokenASymbol, tokenA);
+            allTokens.push(getTokenInfo[tokenA]);
+        }
+        if (getTokenInfo[tokenB].tokenAddress == address(0)) {
+            getTokenInfo[tokenB] = TokenInfo(tokenBName, tokenBSymbol, tokenB);
+            allTokens.push(getTokenInfo[tokenB]);
+        }
 
         allPools.push(poolAddr);
 
@@ -45,5 +70,42 @@ contract PoolManager is IPoolManager {
     function getPoolByIndex(uint256 index) external view returns (address) {
         require(index < allPools.length, "Index out of bounds");
         return allPools[index];
+    }
+
+    function getAllTokens() external view returns (TokenInfo[] memory) {
+        return allTokens;
+    }
+
+    function getTokenInfobyAddress(address token) external view returns (TokenInfo memory) {
+        TokenInfo memory info = getTokenInfo[token];
+        require(info.tokenAddress != address(0), "Token not registered");
+        return info;
+    }
+
+    function getPairedTokenInfobyAddress(address token) external view returns (TokenInfo[] memory) {
+        uint256 total = allPools.length;
+        uint256 count = 0;
+
+        for (uint256 i = 0; i < total; i++) {
+            address[2] memory pair = getTokensByPool[allPools[i]];
+            if (pair[0] == token || pair[1] == token) {
+                count++;
+            }
+        }
+
+        TokenInfo[] memory paired = new TokenInfo[](count);
+        uint256 j = 0;
+        for (uint256 i = 0; i < total; i++) {
+            address[2] memory pair = getTokensByPool[allPools[i]];
+            if (pair[0] == token) {
+                paired[j] = getTokenInfo[pair[1]];
+                j++;
+            } else if (pair[1] == token) {
+                paired[j] = getTokenInfo[pair[0]];
+                j++;
+            }
+        }
+
+        return paired;
     }
 }

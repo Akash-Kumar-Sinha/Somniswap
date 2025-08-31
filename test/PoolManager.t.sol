@@ -9,20 +9,38 @@ import {ERC20Mock} from "./mocks/ERC20Mock.sol";
 contract PoolManagerTest is Test {
     PoolManager poolManager;
     ERC20Mock public tokenA;
+    string public tokenAName;
+    string public tokenASymbol;
     ERC20Mock public tokenB;
+    string public tokenBName;
+    string public tokenBSymbol;
     ERC20Mock public tokenC;
+    string public tokenCName;
+    string public tokenCSymbol;
     ERC20Mock public tokenD;
-    
+    string public tokenDName;
+    string public tokenDSymbol;
+
     function setUp() public {
         poolManager = new PoolManager();
-        tokenA = new ERC20Mock("TOKENA", "A");
-        tokenB = new ERC20Mock("TOKENB", "B");
-        tokenC = new ERC20Mock("TOKENC", "C");
-        tokenD = new ERC20Mock("TOKEND", "D");
+        tokenAName = "Token A";
+        tokenASymbol = "TKA";
+        tokenA = new ERC20Mock(tokenAName, tokenASymbol);
+        tokenBName = "Token B";
+        tokenBSymbol = "TKB";
+        tokenB = new ERC20Mock(tokenBName, tokenBSymbol);
+        tokenCName = "Token C";
+        tokenCSymbol = "TKC";
+        tokenC = new ERC20Mock(tokenCName, tokenCSymbol);
+        tokenDName = "Token D";
+        tokenDSymbol = "TKD";
+        tokenD = new ERC20Mock(tokenDName, tokenDSymbol);
     }
-    
-    function creatingPool(address first, address second) internal returns (address) {
-        address poolCreated = poolManager.createPool(first, second);
+
+    function creatingPool(string memory nameA, string memory symbolA, address first, string memory nameB, string memory symbolB, address second) internal returns (address) {
+        address poolCreated = poolManager.createPool(
+            nameA, symbolA, first, nameB, symbolB, second
+        );
         console.log("The address of the new pool is: ", poolCreated);
         return poolCreated;
     }
@@ -46,35 +64,36 @@ contract PoolManagerTest is Test {
     }
     
     function testCreatePool() public {
-        // Keep both address and Pool type variables
-        address pool1 = creatingPool(address(tokenA), address(tokenB));
+        address pool1 = creatingPool(
+            tokenAName, tokenASymbol, address(tokenA), tokenBName, tokenBSymbol, address(tokenB)
+        );
         Pool poolOne = Pool(pool1);
         address lpTokenAddress1 = poolOne.getPoolTokenAddress();
         console.log("LP Token address1: ", lpTokenAddress1);
         getPoolLength();
         
-        address pool2 = creatingPool(address(tokenC), address(tokenD));
+        address pool2 = creatingPool(
+            tokenCName, tokenCSymbol, address(tokenC), tokenDName, tokenDSymbol, address(tokenD)
+        );
         Pool poolTwo = Pool(pool2);
         address lpTokenAddress2 = poolTwo.getPoolTokenAddress();
         console.log("LP Token address2: ", lpTokenAddress2);
         getPoolLength();
         
-        address pool3 = creatingPool(address(tokenA), address(tokenC));
+        address pool3 = creatingPool(
+            tokenAName, tokenASymbol, address(tokenA), tokenCName, tokenCSymbol, address(tokenC)
+        );
         Pool poolThree = Pool(pool3);
         address lpTokenAddress3 = poolThree.getPoolTokenAddress();
         console.log("LP Token address3: ", lpTokenAddress3);
         
-        // You don't need vm.startPrank for just reading data
-        // vm.startPrank is used for impersonating accounts for transactions
         
         address zero = gettPoolbyIndex(0);
         address one = gettPoolbyIndex(1);
         
-        // Verify that the pools are correctly stored
         assertEq(zero, pool1, "Pool at index 0 should be pool1");
         assertEq(one, pool2, "Pool at index 1 should be pool2");
         
-        // Verify LP token addresses are different
         assertTrue(lpTokenAddress1 != lpTokenAddress2, "LP token addresses should be different");
     }
 }
