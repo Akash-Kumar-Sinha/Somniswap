@@ -108,4 +108,12 @@ contract PoolManager is IPoolManager {
 
         return paired;
     }
+
+    function getPoolAddress(address tokenA, address tokenB) external view returns (address) {
+        require(tokenA != tokenB, "Identical tokens");
+        address pool = getPoolByTokens[tokenA][tokenB];
+        require(pool != address(0), "Pool does not exist");
+        return pool;
+    }
+
 }

@@ -2,7 +2,8 @@ import { createPublicClient, http } from "viem";
 import { somniaTestnet } from "viem/chains";
 import { createWalletClient, custom } from "viem";
 
-export const CONTRACT_ADDRESS = "0xE02439e785415ce21D7e9f57a18f7ffCeBB33eaD";
+export const CONTRACT_ADDRESS = "0x5298C714BCA559db2b6129f2170A36DC91EFc0fa";
+
 export const publicClient = createPublicClient({
   chain: somniaTestnet,
   transport: http(),

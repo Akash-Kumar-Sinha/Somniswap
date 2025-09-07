@@ -6,9 +6,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import type { Address } from "viem";
 
 interface HeaderProps {
-  address: string;
+  address: Address;
 }
 
 const Header = ({ address }: HeaderProps) => {
@@ -18,6 +19,7 @@ const Header = ({ address }: HeaderProps) => {
       toast.success("Address copied to clipboard!");
     }
   };
+
   return (
     <header className="w-full sticky top-0 z-50 border-b-2 border-primary rounded-xl shadow-lg flex items-center justify-between px-6 py-3">
       <div className="flex items-center gap-2">

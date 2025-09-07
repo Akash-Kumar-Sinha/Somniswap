@@ -5,3 +5,20 @@
 ## Liquidity Pool architecture-2
 
 ![alt text](liquidity_pool2.png)
+
+## Deployed Tokens on Sepolia Testnet
+
+- TestStt TST token address
+```0x84faF093E7e84f951AEc10567EcA28a627fd3e51```
+
+- TestErc TST token address
+```0x39C44Ab0f0678078AD7920F4789A996396f9A70A```
+
+## Deployed Contracts on Sepolia Testnet
+
+```sh
+forge create --rpc-url https://dream-rpc.somnia.network --private-key <PRIVATE_KEY> --broadcast src/PoolManager.sol:PoolManager
+```
+
+- PoolManager contract address
+```0x5298C714BCA559db2b6129f2170A36DC91EFc0fa```

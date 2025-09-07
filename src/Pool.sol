@@ -107,6 +107,25 @@ contract Pool is IPool {
         emit Swap(msg.sender, tokenIn, amountIn, tokenOut, amountOut);
     }
 
+    function quoteSwap(address tokenIn, uint256 amountIn) 
+        external 
+        view 
+        returns (uint256 amountOut) 
+    {
+        require(
+            tokenIn == address(tokenA) || tokenIn == address(tokenB),
+            "Invalid token"
+        );
+
+        (uint256 reserveIn, uint256 reserveOut) = tokenIn == address(tokenA)
+            ? (tokenA.balanceOf(address(this)), tokenB.balanceOf(address(this)))
+            : (tokenB.balanceOf(address(this)), tokenA.balanceOf(address(this)));
+
+        uint256 amountInWithFee = amountIn * (1000 - FEE_RATE);
+        amountOut = (amountInWithFee * reserveOut) / (reserveIn * 1000 + amountInWithFee);
+    }
+
+
     function getPoolTokenShare(address user) public view returns(uint256){
         return lpToken.balanceOf(user);
     }
@@ -115,7 +134,7 @@ contract Pool is IPool {
         return lpToken.totalSupply();
     }
 
-    function getPoolReserves() public view returns(uint256 reserveA, uint256 reserveB){
+    function getPoolReserves() external view returns(uint256 reserveA, uint256 reserveB){
         reserveA = tokenA.balanceOf(address(this));
         reserveB = tokenB.balanceOf(address(this));
         return (reserveA, reserveB);

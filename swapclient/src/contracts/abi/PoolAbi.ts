@@ -88,6 +88,16 @@ export const PoolAbi = [
   },
   {
     type: "function",
+    name: "quoteSwap",
+    inputs: [
+      { name: "tokenIn", type: "address", internalType: "address" },
+      { name: "amountIn", type: "uint256", internalType: "uint256" },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "swap",
     inputs: [
       { name: "tokenIn", type: "address", internalType: "address" },

@@ -2,7 +2,7 @@ export const PoolManagerAbi = [
   {
     type: "function",
     name: "allPools",
-    inputs: [{ name: "", type: "uint257", internalType: "uint256" }],
+    inputs: [{ name: "", type: "uint256", internalType: "uint256" }],
     outputs: [{ name: "", type: "address", internalType: "address" }],
     stateMutability: "view",
   },
@@ -80,6 +80,16 @@ export const PoolManagerAbi = [
         ],
       },
     ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "getPoolAddress",
+    inputs: [
+      { name: "tokenA", type: "address", internalType: "address" },
+      { name: "tokenB", type: "address", internalType: "address" },
+    ],
+    outputs: [{ name: "", type: "address", internalType: "address" }],
     stateMutability: "view",
   },
   {
