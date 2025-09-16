@@ -12,6 +12,8 @@ interface PullLiquidityProps {
   address: Address;
   lpBalance: string;
   fetchLpBalance: () => Promise<void>;
+  getAllTokens: () => Promise<void>;
+  fetchReserves: () => Promise<void>;
 }
 
 const PullLiquidity: React.FC<PullLiquidityProps> = ({
@@ -19,6 +21,8 @@ const PullLiquidity: React.FC<PullLiquidityProps> = ({
   address,
   lpBalance,
   fetchLpBalance,
+  getAllTokens,
+  fetchReserves,
 }) => {
   const [removing, setRemoving] = useState(false);
 
@@ -62,6 +66,8 @@ const PullLiquidity: React.FC<PullLiquidityProps> = ({
       console.log("Remove liquidity request:", request);
       toast.success("Liquidity successfully removed!");
       await fetchLpBalance();
+      await getAllTokens();
+      await fetchReserves();
     } catch (error) {
       console.error("Error removing liquidity:", error);
       toast.error("Failed to remove liquidity.");

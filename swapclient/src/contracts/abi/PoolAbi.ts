@@ -68,6 +68,13 @@ export const PoolAbi = [
   },
   {
     type: "function",
+    name: "liquidityQuote",
+    inputs: [{ name: "amountA", type: "uint256", internalType: "uint256" }],
+    outputs: [{ name: "amountB", type: "uint256", internalType: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "lpToken",
     inputs: [],
     outputs: [

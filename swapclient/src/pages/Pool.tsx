@@ -21,6 +21,8 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
   const [tokenA, setTokenA] = useState<TokenInfo | null>(null);
   const [tokenB, setTokenB] = useState<TokenInfo | null>(null);
   const [reserves, setReserves] = useState<ReserveState | null>(null);
+  const [allTokens, setAllTokens] = useState<TokenInfo[]>([]);
+  const [lpSupply, setLpSupply] = useState<string>("");
 
   const fetchLpBalance = useCallback(async () => {
     if (!poolAddress) {
@@ -106,6 +108,45 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
   useEffect(() => {
     fetchPoolAddress();
   }, [fetchPoolAddress]);
+
+  const getAllTokens = async () => {
+    try {
+      const tokens = (await publicClient.readContract({
+        address: CONTRACT_ADDRESS,
+        abi: PoolManagerAbi,
+        functionName: "getAllTokens",
+      })) as TokenInfo[];
+      setAllTokens(tokens);
+    } catch (error) {
+      console.error("Error fetching all tokens:", error);
+    }
+  };
+
+  useEffect(() => {
+    getAllTokens();
+  }, []);
+
+    const fetchLpSupply = useCallback(async () => {
+    if (!poolAddress) {
+      setLpSupply("");
+      return;
+    }
+    try {
+      const supply = (await publicClient.readContract({
+        address: poolAddress,
+        abi: PoolAbi,
+        functionName: "getPoolTokenSupply",
+      })) as bigint;
+      setLpSupply(formatUnits(supply, 18));
+    } catch (error) {
+      console.error("Error fetching LP supply:", error);
+      setLpSupply("");
+    }
+  }, [poolAddress]);
+
+  useEffect(() => {
+    fetchLpSupply();
+  }, [fetchLpSupply]);
   return (
     <div className="w-full min-h-screen flex flex-col bg-background">
       <Header address={address} />
@@ -119,7 +160,7 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
           }}
         >
           <div className="shrink-0">
-            <CreatePool />
+            <CreatePool getAllTokens={getAllTokens} />
           </div>
           {lpBalance > "0" && poolAddress && (
             <div className="shrink-0">
@@ -128,6 +169,8 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
                 address={address}
                 lpBalance={lpBalance}
                 fetchLpBalance={fetchLpBalance}
+                getAllTokens={getAllTokens}
+                fetchReserves={fetchReserves}
               />
             </div>
           )}
@@ -139,6 +182,8 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
                 poolAddress={poolAddress}
                 accountAddress={address}
                 fetchLpBalance={fetchLpBalance}
+                fetchReserves={fetchReserves}
+                fetchLpSupply={fetchLpSupply}
               />
             </div>
           )}
@@ -154,6 +199,8 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
             setTokenB={setTokenB}
             reserves={reserves}
             fetchReserves={fetchReserves}
+            allTokens={allTokens}
+            lpSupply={lpSupply}
           />
         </div>
       </div>

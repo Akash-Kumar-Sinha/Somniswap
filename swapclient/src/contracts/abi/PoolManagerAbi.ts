@@ -46,7 +46,7 @@ export const PoolManagerAbi = [
       {
         name: "",
         type: "tuple[]",
-        internalType: "struct PoolManager.TokenInfo[]",
+        internalType: "struct TokenInfo[]",
         components: [
           { name: "name", type: "string", internalType: "string" },
           { name: "symbol", type: "string", internalType: "string" },
@@ -68,7 +68,7 @@ export const PoolManagerAbi = [
       {
         name: "",
         type: "tuple[]",
-        internalType: "struct PoolManager.TokenInfo[]",
+        internalType: "struct TokenInfo[]",
         components: [
           { name: "name", type: "string", internalType: "string" },
           { name: "symbol", type: "string", internalType: "string" },
@@ -94,13 +94,6 @@ export const PoolManagerAbi = [
   },
   {
     type: "function",
-    name: "getPoolByIndex",
-    inputs: [{ name: "index", type: "uint256", internalType: "uint256" }],
-    outputs: [{ name: "", type: "address", internalType: "address" }],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     name: "getPoolByTokens",
     inputs: [
       { name: "", type: "address", internalType: "address" },
@@ -117,28 +110,6 @@ export const PoolManagerAbi = [
       { name: "name", type: "string", internalType: "string" },
       { name: "symbol", type: "string", internalType: "string" },
       { name: "tokenAddress", type: "address", internalType: "address" },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getTokenInfobyAddress",
-    inputs: [{ name: "token", type: "address", internalType: "address" }],
-    outputs: [
-      {
-        name: "",
-        type: "tuple",
-        internalType: "struct PoolManager.TokenInfo",
-        components: [
-          { name: "name", type: "string", internalType: "string" },
-          { name: "symbol", type: "string", internalType: "string" },
-          {
-            name: "tokenAddress",
-            type: "address",
-            internalType: "address",
-          },
-        ],
-      },
     ],
     stateMutability: "view",
   },

@@ -7,6 +7,8 @@ import {Pool} from "../src/Pool.sol";
 import {ERC20Mock} from "./mocks/ERC20Mock.sol";
 import {AKSLPToken} from "../src/PoolToken/AKSLPToken.sol";
 
+import {TokenInfo} from "../src/Helper/IPoolManager.sol";
+
 contract IntegratedPoolManagerTest is Test {
     PoolManager public poolManager;
     ERC20Mock public tokenA;
@@ -70,7 +72,6 @@ contract IntegratedPoolManagerTest is Test {
         assertEq(poolManager.getPoolByTokens(address(tokenA), address(tokenB)), poolAddr);
         assertEq(poolManager.getPoolByTokens(address(tokenB), address(tokenA)), poolAddr);
         assertEq(poolManager.allPoolsLength(), 1);
-        assertEq(poolManager.getPoolByIndex(0), poolAddr);
         
         console.log("Created pool address:", poolAddr);
     }
@@ -94,10 +95,6 @@ contract IntegratedPoolManagerTest is Test {
         assertTrue(pool3 != pool4);
         
         assertEq(poolManager.allPoolsLength(), 4);
-        assertEq(poolManager.getPoolByIndex(0), pool1);
-        assertEq(poolManager.getPoolByIndex(1), pool2);
-        assertEq(poolManager.getPoolByIndex(2), pool3);
-        assertEq(poolManager.getPoolByIndex(3), pool4);
     }
     
     function testCreatePoolFailures() public {
@@ -119,18 +116,6 @@ contract IntegratedPoolManagerTest is Test {
         poolManager.createPool(
             "Token B", "TKB", address(tokenB), "Token A", "TKA", address(tokenA)
         );
-    }
-    
-    function testGetPoolByIndexOutOfBounds() public {
-        vm.expectRevert("Index out of bounds");
-        poolManager.getPoolByIndex(0);
-
-        poolManager.createPool(
-            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
-        );
-
-        vm.expectRevert("Index out of bounds");
-        poolManager.getPoolByIndex(1);
     }
     
     function testPoolCreationAndBasicInfo() public {
@@ -338,7 +323,6 @@ contract IntegratedPoolManagerTest is Test {
         assertEq(poolManager.allPoolsLength(), 10);
         
         for (uint i = 0; i < pools.length; i++) {
-            assertEq(poolManager.getPoolByIndex(i), pools[i]);
             assertTrue(pools[i] != address(0));
             
             for (uint j = i + 1; j < pools.length; j++) {
@@ -394,5 +378,85 @@ contract IntegratedPoolManagerTest is Test {
         console.log("Step 6: User2 removed liquidity");
         
         console.log("=== Complete Workflow Test Passed ===");
+    
     }
+
+    function testSwapInvalidPairReverts() public {
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
+        Pool pool = Pool(poolAddr);
+
+        _approvePoolForUser(user1, poolAddr);
+        vm.prank(user1);
+        pool.addLiquidity(1000 ether, 1000 ether);
+
+        vm.expectRevert("Invalid token pair");
+        pool.swap(address(tokenC), address(tokenD), 100 ether);
+    }
+
+    function testPullLiquidityWithoutLPReverts() public {
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
+        Pool pool = Pool(poolAddr);
+
+        vm.expectRevert("This address is not a liquidity provider");
+        vm.prank(user2);
+        pool.pullLiquidityAsLp();
+    }
+
+    function testLiquidityQuoteWorks() public {
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA),
+            "Token B", "TKB", address(tokenB)
+        );
+        Pool pool = Pool(poolAddr);
+
+        _approvePoolForUser(user1, poolAddr);
+        
+        vm.startPrank(user1);
+        pool.addLiquidity(1000 ether, 1000 ether); // equal amounts for initial liquidity
+        vm.stopPrank();
+
+        uint256 quoted = pool.liquidityQuote(500 ether);
+        assertEq(quoted, 500 ether, "Quote should maintain ratio");
+    }
+
+
+    function testQuoteSwapAndRevertCases() public {
+        address poolAddr = poolManager.createPool(
+            "Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB)
+        );
+        Pool pool = Pool(poolAddr);
+
+        _approvePoolForUser(user1, poolAddr);
+        vm.prank(user1);
+        pool.addLiquidity(1000 ether, 1000 ether);
+
+        uint256 out = pool.quoteSwap(address(tokenA), 100 ether);
+        assertTrue(out > 0, "Quote swap should produce valid output");
+
+        vm.expectRevert("Invalid token");
+        pool.quoteSwap(address(tokenC), 100 ether);
+    }
+
+    function testGetPairedTokensAndAllTokens() public {
+        poolManager.createPool("Token A", "TKA", address(tokenA), "Token B", "TKB", address(tokenB));
+        poolManager.createPool("Token A", "TKA", address(tokenA), "Token C", "TKC", address(tokenC));
+
+        TokenInfo[] memory paired = poolManager.getPairedTokenInfobyAddress(address(tokenA));
+        assertEq(paired.length, 2, "Token A should be paired with 2 tokens");
+
+        TokenInfo[] memory allTokens = poolManager.getAllTokens();
+        assertTrue(allTokens.length >= 3, "Should track all unique tokens");
+    }
+  
+
+
+    function testGetPoolAddressRevertsIfNotExist() public {
+        vm.expectRevert("Pool does not exist");
+        poolManager.getPoolAddress(address(tokenA), address(tokenC));
+    }
+
 }

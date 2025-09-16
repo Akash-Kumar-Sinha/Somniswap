@@ -28,6 +28,8 @@ interface SwapProps {
   setTokenB: (token: TokenInfo | null) => void;
   reserves: ReserveState | null;
   fetchReserves: () => Promise<void>;
+  allTokens: TokenInfo[];
+  lpSupply: string;
 }
 
 const Swap: React.FC<SwapProps> = ({
@@ -40,12 +42,12 @@ const Swap: React.FC<SwapProps> = ({
   setTokenB,
   reserves,
   fetchReserves,
+  allTokens,
+  lpSupply,
 }) => {
   const [pairedToken, setPairedToken] = useState<TokenInfo[]>([]);
-  const [allTokens, setAllTokens] = useState<TokenInfo[]>([]);
 
-  const [lpSupply, setLpSupply] = useState<string>("");
-  const [lpTokenAddress, setLpTokenAddress] = useState<Address | null>(null);
+  // const [lpTokenAddress, setLpTokenAddress] = useState<Address | null>(null);
 
   const [amountIn, setAmountIn] = useState<string>("");
   const [amountOut, setAmountOut] = useState<string>("");
@@ -53,22 +55,7 @@ const Swap: React.FC<SwapProps> = ({
   const [isApproving, setIsApproving] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
 
-  const getAllTokens = async () => {
-    try {
-      const tokens = (await publicClient.readContract({
-        address: CONTRACT_ADDRESS,
-        abi: PoolManagerAbi,
-        functionName: "getAllTokens",
-      })) as TokenInfo[];
-      setAllTokens(tokens);
-    } catch (error) {
-      console.error("Error fetching all tokens:", error);
-    }
-  };
 
-  useEffect(() => {
-    getAllTokens();
-  }, []);
 
   const fetchPairedTokens = useCallback(async () => {
     if (!tokenA) {
@@ -92,49 +79,29 @@ const Swap: React.FC<SwapProps> = ({
     fetchPairedTokens();
   }, [fetchPairedTokens]);
 
-  const fetchLpSupply = useCallback(async () => {
-    if (!poolAddress) {
-      setLpSupply("");
-      return;
-    }
-    try {
-      const supply = (await publicClient.readContract({
-        address: poolAddress,
-        abi: PoolAbi,
-        functionName: "getPoolTokenSupply",
-      })) as bigint;
-      setLpSupply(formatUnits(supply, 18));
-    } catch (error) {
-      console.error("Error fetching LP supply:", error);
-      setLpSupply("");
-    }
-  }, [poolAddress]);
 
-  useEffect(() => {
-    fetchLpSupply();
-  }, [fetchLpSupply]);
 
-  const fetchLpTokenAddress = useCallback(async () => {
-    if (!poolAddress) {
-      setLpTokenAddress(null);
-      return;
-    }
-    try {
-      const addr = (await publicClient.readContract({
-        address: poolAddress as Address,
-        abi: PoolAbi,
-        functionName: "getPoolTokenAddress",
-      })) as Address;
-      setLpTokenAddress(addr);
-    } catch (error) {
-      console.error("Error fetching LP token address:", error);
-      setLpTokenAddress(null);
-    }
-  }, [poolAddress]);
+  // const fetchLpTokenAddress = useCallback(async () => {
+  //   if (!poolAddress) {
+  //     setLpTokenAddress(null);
+  //     return;
+  //   }
+  //   try {
+  //     const addr = (await publicClient.readContract({
+  //       address: poolAddress as Address,
+  //       abi: PoolAbi,
+  //       functionName: "getPoolTokenAddress",
+  //     })) as Address;
+  //     setLpTokenAddress(addr);
+  //   } catch (error) {
+  //     console.error("Error fetching LP token address:", error);
+  //     setLpTokenAddress(null);
+  //   }
+  // }, [poolAddress]);
 
-  useEffect(() => {
-    fetchLpTokenAddress();
-  }, [fetchLpTokenAddress]);
+  // useEffect(() => {
+  //   fetchLpTokenAddress();
+  // }, [fetchLpTokenAddress]);
 
   const fetchPoolSwapTokens = useCallback(async () => {
     if (!poolAddress) return;
@@ -212,11 +179,12 @@ const Swap: React.FC<SwapProps> = ({
     }
   };
 
-  const onSwitch = () => {
+  const onSwitch = async () => {
     setTokenA(tokenB);
     setTokenB(tokenA);
     setAmountIn("");
     setAmountOut("");
+    await fetchReserves();
   };
 
   const fetchQuote = useCallback(async () => {
@@ -260,132 +228,145 @@ const Swap: React.FC<SwapProps> = ({
 
   return (
     <div className="flex items-center justify-center min-h-[70vh] bg-background">
-      <div className="relative w-full max-w-md bg-card rounded-2xl shadow-2xl border border-border p-6">
-        <h1 className="text-2xl font-bold mb-1 text-center text-foreground">
+      <div className="relative w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-border p-4 sm:p-8">
+        <h1 className="text-3xl font-extrabold mb-2 text-center text-[var(--color-primary)] tracking-tight">
           Somnia Swap
         </h1>
-        <p className="text-xs text-center mb-2 text-muted-foreground">
-          This pool has no built-in slippage protection. You will receive the
-          on-chain output at execution time.
-        </p>
-        <p className="text-sm text-center mb-4 text-purple-500">
+        <p className="text-base text-center mb-4 text-purple-500 font-medium">
           If a pool does not exist, please create one.
         </p>
 
         {poolAddress && (
-          <p className="mb-4 text-sm text-center">
-            {tokenA?.symbol} / {tokenB?.symbol}: {reserves?.reserveA} /{" "}
-            {reserves?.reserveB}
+          <p className="mb-4 text-base text-center font-semibold text-[var(--color-primary)]">
+            {tokenA?.symbol} / {tokenB?.symbol}:{" "}
+            <span className="font-mono">{reserves?.reserveA}</span> /{" "}
+            <span className="font-mono">{reserves?.reserveB}</span>
           </p>
         )}
 
-        <div className="flex flex-col gap-4">
-          <div className="bg-muted rounded-xl p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <label className="block text-sm font-medium text-muted-foreground">
+        <div className="flex flex-col gap-3">
+          <div className="bg-muted rounded-xl p-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-base font-semibold text-muted-foreground">
                 From
               </label>
-              <div className="text-xs text-muted-foreground">
-                {tokenA ? ` ${tokenA.symbol}` : ""}
+              <div className="text-sm text-muted-foreground font-mono">
+                {tokenA ? tokenA.symbol : ""}
               </div>
             </div>
-            <Select
-              value={tokenA?.tokenAddress || ""}
-              onValueChange={(val) => {
-                const selected = allTokens.find((t) => t.tokenAddress === val);
-                if (selected) setTokenA(selected);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Token A" />
-              </SelectTrigger>
-              <SelectContent>
-                {allTokens.map((token) => (
-                  <SelectItem
-                    key={token.tokenAddress}
-                    value={token.tokenAddress}
-                  >
-                    {token.name} ({token.symbol}) —{" "}
-                    {token.tokenAddress.slice(0, 6)}...
-                    {token.tokenAddress.slice(-4)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              <Select
+                value={tokenA?.tokenAddress || ""}
+                onValueChange={(val) => {
+                  const selected = allTokens.find(
+                    (t) => t.tokenAddress === val
+                  );
+                  if (selected) setTokenA(selected);
+                }}
+              >
+                <SelectTrigger className="w-40 sm:w-56 h-10 text-base font-medium bg-card border border-border rounded-lg">
+                  <SelectValue placeholder="Select Token A" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  {allTokens.map((token) => (
+                    <SelectItem
+                      key={token.tokenAddress}
+                      value={token.tokenAddress}
+                      className="text-base"
+                    >
+                      {token.name} ({token.symbol}) —{" "}
+                      {token.tokenAddress.slice(0, 6)}...
+                      {token.tokenAddress.slice(-4)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
                 placeholder="0.0"
                 value={amountIn}
                 onChange={(e) => setAmountIn(e.target.value)}
                 inputMode="decimal"
+                className="flex-1 h-10 text-lg font-mono bg-background border border-border rounded-lg px-3"
               />
             </div>
           </div>
 
-          <div className="flex justify-center">
+          <div className="flex justify-center -my-2">
             <Button
-              className="bg-accent text-accent-foreground rounded-full  font-bold shadow hover:opacity-90"
+              className="bg-accent text-accent-foreground rounded-full font-bold shadow hover:opacity-90 w-10 h-10 flex items-center justify-center"
               onClick={onSwitch}
               disabled={!tokenA || !tokenB}
               title="Switch tokens"
+              size="icon"
             >
               <ArrowUpDown />
             </Button>
           </div>
 
-          <div className="bg-muted rounded-xl p-4 flex flex-col gap-3">
-            <Label className="block text-sm font-medium text-muted-foreground">
-              To
-            </Label>
-            <Select
-              value={tokenB?.tokenAddress || ""}
-              onValueChange={(val) => {
-                const selected = pairedToken.find(
-                  (t) => t.tokenAddress === val
-                );
-                if (selected) setTokenB(selected);
-              }}
-              disabled={!tokenA || pairedToken.length === 0}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue
-                  placeholder={
-                    tokenA
-                      ? pairedToken.length
-                        ? "Select Token B"
-                        : "No paired tokens"
-                      : "Select Token A first"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {pairedToken.map((token) => (
-                  <SelectItem
-                    key={token.tokenAddress}
-                    value={token.tokenAddress}
-                  >
-                    {token.name} ({token.symbol}) —{" "}
-                    {token.tokenAddress.slice(0, 6)}...
-                    {token.tokenAddress.slice(-4)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2 items-center w-full">
-              <Input placeholder="0.0" value={amountOut} readOnly />
+          <div className="bg-muted rounded-xl p-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between mb-1">
+              <Label className="block text-base font-semibold text-muted-foreground">
+                To
+              </Label>
+              <div className="text-sm text-muted-foreground font-mono">
+                {tokenB ? tokenB.symbol : ""}
+              </div>
+            </div>
+            <div className="flex gap-2 items-center">
+              <Select
+                value={tokenB?.tokenAddress || ""}
+                onValueChange={(val) => {
+                  const selected = pairedToken.find(
+                    (t) => t.tokenAddress === val
+                  );
+                  if (selected) setTokenB(selected);
+                }}
+                disabled={!tokenA || pairedToken.length === 0}
+              >
+                <SelectTrigger className="w-40 sm:w-56 h-10 text-base font-medium bg-card border border-border rounded-lg">
+                  <SelectValue
+                    placeholder={
+                      tokenA
+                        ? pairedToken.length
+                          ? "Select Token B"
+                          : "No paired tokens"
+                        : "Select Token A first"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 overflow-y-auto">
+                  {pairedToken.map((token) => (
+                    <SelectItem
+                      key={token.tokenAddress}
+                      value={token.tokenAddress}
+                      className="text-base"
+                    >
+                      {token.name} ({token.symbol}) —{" "}
+                      {token.tokenAddress.slice(0, 6)}...
+                      {token.tokenAddress.slice(-4)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="0.0"
+                value={amountOut}
+                readOnly
+                className="flex-1 h-10 text-lg font-mono bg-background border border-border rounded-lg px-3"
+              />
               <div
                 onClick={fetchQuote}
                 aria-disabled={!poolAddress || !amountIn}
-                className={`text-sm  text-primary ${
+                className={`ml-2 text-base font-semibold text-primary px-2 py-1 rounded cursor-pointer select-none ${
                   !poolAddress || !amountIn
                     ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
+                    : "hover:bg-primary/10"
                 }`}
               >
                 Quote
               </div>
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-xs text-muted-foreground mt-1 min-h-[1.25em]">
               {isFetching
                 ? "Quoting..."
                 : amountOut
@@ -396,42 +377,42 @@ const Swap: React.FC<SwapProps> = ({
         </div>
 
         {!!poolAddress && reserves && tokenA && tokenB && (
-          <div className="mt-4 text-xs text-muted-foreground space-y-1">
-            <div className="flex justify-between">
-              <span>Pool</span>
+          <div className="mt-6 text-base text-muted-foreground space-y-1">
+            {/* <div className="flex justify-between">
+              <span className="font-semibold">Pool</span>
               <span className="font-mono">
                 {poolAddress.slice(0, 8)}…{poolAddress.slice(-6)}
               </span>
-            </div>
+            </div> */}
             <div className="flex justify-between">
-              <span>Fee</span>
+              <span className="font-semibold">Fee</span>
               <span>0.5%</span>
             </div>
-            {lpTokenAddress && (
+            {/* {lpTokenAddress && (
               <div className="flex justify-between">
-                <span>LP Token</span>
+                <span className="font-semibold">LP Token</span>
                 <span className="font-mono">
                   {lpTokenAddress.slice(0, 8)}…{lpTokenAddress.slice(-6)}
                 </span>
               </div>
-            )}
+            )} */}
             {lpBalance && (
               <div className="flex justify-between">
-                <span>Your LP Balance</span>
-                <span>{lpBalance}</span>
+                <span className="font-semibold">Your LP Balance</span>
+                <span className="font-mono">{lpBalance}</span>
               </div>
             )}
             {lpSupply && (
               <div className="flex justify-between">
-                <span>Total LP Supply</span>
-                <span>{lpSupply}</span>
+                <span className="font-semibold">Total LP Supply</span>
+                <span className="font-mono">{lpSupply}</span>
               </div>
             )}
           </div>
         )}
 
         <Button
-          className="mt-6 w-full py-3 rounded-xl text-lg font-bold shadow hover:bg-primary/90 transition-all duration-200"
+          className="mt-8 w-full py-3 rounded-xl text-xl font-extrabold shadow hover:bg-primary/90 transition-all duration-200"
           onClick={onSwap}
         >
           {isApproving

@@ -27,19 +27,18 @@ contract Pool is IPool {
     }
 
     function addLiquidity(uint256 amountA, uint256 amountB) external {
-        require(amountA > 0 && amountB > 0, "Invalid or insufficient amount");
 
         uint256 mintAmount;
         uint256 totalSupply = lpToken.totalSupply();
         uint256 reserveA = tokenA.balanceOf(address(this));
         uint256 reserveB = tokenB.balanceOf(address(this));
         if (totalSupply == 0) {
-            require(amountA == amountB, "Invalid or insufficient amount!");
+            require(amountA == amountB, "Invalid or insufficient amount in first block!");
 
             mintAmount = Helper.sqrt(amountA * amountB);
 
         } else {
-            require(amountA * reserveB == amountB * reserveA, "Invalid or insufficient amount!");
+            require(amountA / amountB == reserveA / reserveB, "Invalid or insufficient amount in second block!");
 
             uint256 mintFromA = totalSupply * amountA / reserveA;
             uint256 mintFromB = totalSupply * amountB / reserveB;
@@ -51,6 +50,18 @@ contract Pool is IPool {
         
         lpToken.mint(msg.sender, mintAmount);
         emit LiquidityAdded(msg.sender, amountA, amountB, mintAmount);
+    }
+
+    function liquidityQuote(uint256 amountA) external view returns (uint256 amountB) {
+        uint256 reserveA = tokenA.balanceOf(address(this));
+        uint256 reserveB = tokenB.balanceOf(address(this));
+        
+        if (reserveA == 0 || reserveB == 0) {
+            return amountA;
+        }
+
+        amountB = (amountA * reserveB * 1e18) / (reserveA * 1e18);
+        
     }
     
     function pullLiquidityAsLp() public {

@@ -1,99 +1,139 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {PoolManager} from "../src/PoolManager.sol";
 import {Pool} from "../src/Pool.sol";
 import {ERC20Mock} from "./mocks/ERC20Mock.sol";
 
+import {TokenInfo} from "../src/Helper/IPoolManager.sol";
+
 contract PoolManagerTest is Test {
     PoolManager poolManager;
+
     ERC20Mock public tokenA;
-    string public tokenAName;
-    string public tokenASymbol;
     ERC20Mock public tokenB;
-    string public tokenBName;
-    string public tokenBSymbol;
     ERC20Mock public tokenC;
-    string public tokenCName;
-    string public tokenCSymbol;
     ERC20Mock public tokenD;
-    string public tokenDName;
-    string public tokenDSymbol;
+
+    string public tokenAName = "Token A";
+    string public tokenASymbol = "TKA";
+    string public tokenBName = "Token B";
+    string public tokenBSymbol = "TKB";
+    string public tokenCName = "Token C";
+    string public tokenCSymbol = "TKC";
+    string public tokenDName = "Token D";
+    string public tokenDSymbol = "TKD";
 
     function setUp() public {
         poolManager = new PoolManager();
-        tokenAName = "Token A";
-        tokenASymbol = "TKA";
         tokenA = new ERC20Mock(tokenAName, tokenASymbol);
-        tokenBName = "Token B";
-        tokenBSymbol = "TKB";
         tokenB = new ERC20Mock(tokenBName, tokenBSymbol);
-        tokenCName = "Token C";
-        tokenCSymbol = "TKC";
         tokenC = new ERC20Mock(tokenCName, tokenCSymbol);
-        tokenDName = "Token D";
-        tokenDSymbol = "TKD";
         tokenD = new ERC20Mock(tokenDName, tokenDSymbol);
     }
 
-    function creatingPool(string memory nameA, string memory symbolA, address first, string memory nameB, string memory symbolB, address second) internal returns (address) {
-        address poolCreated = poolManager.createPool(
-            nameA, symbolA, first, nameB, symbolB, second
-        );
-        console.log("The address of the new pool is: ", poolCreated);
-        return poolCreated;
+    function _createPool(
+        string memory nameA,
+        string memory symbolA,
+        address first,
+        string memory nameB,
+        string memory symbolB,
+        address second
+    ) internal returns (address) {
+        return poolManager.createPool(nameA, symbolA, first, nameB, symbolB, second);
     }
-    
-    function getPoolLength() internal view returns (uint256) {
-        uint256 leng = poolManager.allPoolsLength();
-        console.log("The current number of pools is: ", leng);
-        return leng;
-    }
-    
-    function gettPoolbyIndex(uint256 value) internal view returns (address) {
-        address poolAddr = poolManager.getPoolByIndex(value);
-        console.log("The address of the pool at index ", value, " is: ", poolAddr);
-        return poolAddr;
-    }
-    
-    function getLpTokenAddress(address poolAddress) internal view returns (address) {
-        address lpToken = Pool(poolAddress).getPoolTokenAddress();
-        console.log("LP Token address for pool ", poolAddress, " is: ", lpToken);
-        return lpToken;
-    }
-    
-    function testCreatePool() public {
-        address pool1 = creatingPool(
-            tokenAName, tokenASymbol, address(tokenA), tokenBName, tokenBSymbol, address(tokenB)
+
+    function test_CreateMultiplePools() public {
+        address pool1 = _createPool(
+            tokenAName, tokenASymbol, address(tokenA),
+            tokenBName, tokenBSymbol, address(tokenB)
         );
         Pool poolOne = Pool(pool1);
-        address lpTokenAddress1 = poolOne.getPoolTokenAddress();
-        console.log("LP Token address1: ", lpTokenAddress1);
-        getPoolLength();
-        
-        address pool2 = creatingPool(
-            tokenCName, tokenCSymbol, address(tokenC), tokenDName, tokenDSymbol, address(tokenD)
+        address lp1 = poolOne.getPoolTokenAddress();
+
+        address pool2 = _createPool(
+            tokenCName, tokenCSymbol, address(tokenC),
+            tokenDName, tokenDSymbol, address(tokenD)
         );
         Pool poolTwo = Pool(pool2);
-        address lpTokenAddress2 = poolTwo.getPoolTokenAddress();
-        console.log("LP Token address2: ", lpTokenAddress2);
-        getPoolLength();
-        
-        address pool3 = creatingPool(
-            tokenAName, tokenASymbol, address(tokenA), tokenCName, tokenCSymbol, address(tokenC)
+        address lp2 = poolTwo.getPoolTokenAddress();
+
+        address pool3 = _createPool(
+            tokenAName, tokenASymbol, address(tokenA),
+            tokenCName, tokenCSymbol, address(tokenC)
         );
         Pool poolThree = Pool(pool3);
-        address lpTokenAddress3 = poolThree.getPoolTokenAddress();
-        console.log("LP Token address3: ", lpTokenAddress3);
-        
-        
-        address zero = gettPoolbyIndex(0);
-        address one = gettPoolbyIndex(1);
-        
-        assertEq(zero, pool1, "Pool at index 0 should be pool1");
-        assertEq(one, pool2, "Pool at index 1 should be pool2");
-        
-        assertTrue(lpTokenAddress1 != lpTokenAddress2, "LP token addresses should be different");
+        address lp3 = poolThree.getPoolTokenAddress();
+
+        assertTrue(lp1 != lp2 && lp2 != lp3, "Each pool should have a unique LP token");
+        assertEq(poolManager.allPoolsLength(), 3, "Should have 3 pools created");
+    }
+
+    function test_RevertWhen_CreatingPoolWithIdenticalTokens() public {
+        vm.expectRevert("Identical tokens");
+        _createPool(tokenAName, tokenASymbol, address(tokenA), tokenAName, tokenASymbol, address(tokenA));
+    }
+
+    function test_RevertWhen_CreatingDuplicatePool() public {
+        _createPool(
+            tokenAName, tokenASymbol, address(tokenA),
+            tokenBName, tokenBSymbol, address(tokenB)
+        );
+
+        vm.expectRevert("Pool already exists");
+        _createPool(
+            tokenAName, tokenASymbol, address(tokenA),
+            tokenBName, tokenBSymbol, address(tokenB)
+        );
+    }
+
+    function test_GetPoolAddressWorks() public {
+        address poolAddr = _createPool(
+            tokenAName, tokenASymbol, address(tokenA),
+            tokenBName, tokenBSymbol, address(tokenB)
+        );
+
+        address fetched = poolManager.getPoolAddress(address(tokenA), address(tokenB));
+        assertEq(fetched, poolAddr, "Pool address should match");
+
+        // Reverse order should also work
+        address fetchedReverse = poolManager.getPoolAddress(address(tokenB), address(tokenA));
+        assertEq(fetchedReverse, poolAddr, "Pool address should match regardless of token order");
+    }
+
+    function test_GetAllTokens() public {
+        _createPool(
+            tokenAName, tokenASymbol, address(tokenA),
+            tokenBName, tokenBSymbol, address(tokenB)
+        );
+
+        TokenInfo[] memory tokens = poolManager.getAllTokens();
+        assertEq(tokens.length, 2, "Two tokens should be registered");
+        assertEq(tokens[0].symbol, tokenASymbol);
+        assertEq(tokens[1].symbol, tokenBSymbol);
+    }
+
+    function test_GetPairedTokens() public {
+        _createPool(
+            tokenAName, tokenASymbol, address(tokenA),
+            tokenBName, tokenBSymbol, address(tokenB)
+        );
+        _createPool(
+            tokenAName, tokenASymbol, address(tokenA),
+            tokenCName, tokenCSymbol, address(tokenC)
+        );
+
+        TokenInfo[] memory pairs = poolManager.getPairedTokenInfobyAddress(address(tokenA));
+        assertEq(pairs.length, 2, "Token A should have 2 pairs");
+
+        // Ensure one of the pairs is Token B
+        bool foundB = false;
+        for (uint256 i = 0; i < pairs.length; i++) {
+            if (keccak256(bytes(pairs[i].symbol)) == keccak256(bytes(tokenBSymbol))) {
+                foundB = true;
+            }
+        }
+        assertTrue(foundB, "Token B should appear as pair for Token A");
     }
 }

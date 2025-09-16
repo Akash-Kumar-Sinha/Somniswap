@@ -4,17 +4,13 @@ pragma solidity ^0.8.13;
 import {Pool}  from "./Pool.sol";
 import {AKSLPToken} from "./PoolToken/AKSLPToken.sol";
 import {Helper} from "./Helper/Helper.sol";
-import {IPoolManager} from "./Helper/IPoolManager.sol";
+import {IPoolManager, TokenInfo} from "./Helper/IPoolManager.sol";
 
 contract PoolManager is IPoolManager {
     mapping(address => mapping(address => address)) public getPoolByTokens;
     mapping(address => address[2]) public getTokensByPool;
 
-    struct TokenInfo {
-        string name;
-        string symbol;
-        address tokenAddress;
-    }
+
 
     TokenInfo[] public allTokens;
     mapping(address => TokenInfo) public getTokenInfo;
@@ -67,19 +63,8 @@ contract PoolManager is IPoolManager {
         return allPools.length;
     }
 
-    function getPoolByIndex(uint256 index) external view returns (address) {
-        require(index < allPools.length, "Index out of bounds");
-        return allPools[index];
-    }
-
     function getAllTokens() external view returns (TokenInfo[] memory) {
         return allTokens;
-    }
-
-    function getTokenInfobyAddress(address token) external view returns (TokenInfo memory) {
-        TokenInfo memory info = getTokenInfo[token];
-        require(info.tokenAddress != address(0), "Token not registered");
-        return info;
     }
 
     function getPairedTokenInfobyAddress(address token) external view returns (TokenInfo[] memory) {

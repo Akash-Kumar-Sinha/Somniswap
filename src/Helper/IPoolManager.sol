@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+
+    struct TokenInfo {
+        string name;
+        string symbol;
+        address tokenAddress;
+    }
 interface IPoolManager{
     function createPool(
         string memory tokenAName,
@@ -13,6 +19,7 @@ interface IPoolManager{
     event PoolCreated(address tokenA, address tokenB, address lpToken, address pool);
 
     function allPoolsLength() external view returns (uint256);
-    function getPoolByIndex(uint256 index) external view returns (address);
-
+    function getAllTokens() external view returns (TokenInfo[] memory);
+    function getPairedTokenInfobyAddress(address token) external view returns (TokenInfo[] memory);
+    function getPoolAddress(address tokenA, address tokenB) external view returns (address);
 }

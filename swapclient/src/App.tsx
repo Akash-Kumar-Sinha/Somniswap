@@ -2,8 +2,8 @@ import Home from "./pages/Home";
 
 const App = () => {
   return (
-    <div className="h-full w-full px-8 py-4">
-      <Home/>
+    <div className="min-h-screen min-w-full flex flex-col bg-[var(--color-background)] text-[var(--color-foreground)]">
+      <Home />
     </div>
   );
 };
