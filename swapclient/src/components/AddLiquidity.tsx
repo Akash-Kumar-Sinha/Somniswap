@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import type { TokenInfo } from "@/utils/types";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits, parseUnits, type Address } from "viem";
 import { ERC20_ABI } from "@/contracts/abi/ERC20Abi";
 
 type AddLiquidityProps = {
@@ -40,6 +40,9 @@ const AddLiquidity = ({
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState("");
+  const [loadingReserves, setLoadingReserves] = useState(false);
+  const [loadingQuote, setLoadingQuote] = useState(false);
   const [reserves, setReserves] = useState<{
     reserveA: bigint;
     reserveB: bigint;
@@ -47,6 +50,7 @@ const AddLiquidity = ({
 
   const getPoolReserves = useCallback(async () => {
     try {
+      setLoadingReserves(true);
       const [reserveA, reserveB] = (await publicClient.readContract({
         address: poolAddress as `0x${string}`,
         abi: PoolAbi,
@@ -63,6 +67,8 @@ const AddLiquidity = ({
     } catch (error) {
       console.error("Error fetching reserves:", error);
       return null;
+    } finally {
+      setLoadingReserves(false);
     }
   }, [poolAddress]);
 
@@ -72,31 +78,22 @@ const AddLiquidity = ({
 
       const { reserveA, reserveB } = reserves;
 
-      if (reserveA === 0n && reserveB === 0n) {
-        const amountAParsed = parseUnits(amountAInput, 18);
-        const amountBParsed = parseUnits(amountBInput, 18);
-        const isEqual = amountAParsed === amountBParsed;
-
-        console.log("Empty pool - checking equal amounts:", {
-          amountA: formatUnits(amountAParsed, 18),
-          amountB: formatUnits(amountBParsed, 18),
-          isEqual,
-        });
-
-        return isEqual;
-      }
-
       const amountAParsed = parseUnits(amountAInput, 18);
       const amountBParsed = parseUnits(amountBInput, 18);
 
-      const leftSide = amountAParsed * reserveB;
-      const rightSide = amountBParsed * reserveA;
+      if (reserveA === 0n && reserveB === 0n) {
+        return amountAParsed === amountBParsed;
+      }
 
-      const larger = leftSide > rightSide ? leftSide : rightSide;
-      const smaller = leftSide > rightSide ? rightSide : leftSide;
+      const ratio1 = (amountAParsed * 1_000_000n) / reserveA;
+      const ratio2 = (amountBParsed * 1_000_000n) / reserveB;
 
-      const tolerance = larger / 1000n;
+      const larger = ratio1 > ratio2 ? ratio1 : ratio2;
+      const smaller = ratio1 > ratio2 ? ratio2 : ratio1;
+
+      const tolerance = larger / 1000n; // 0.1%
       const difference = larger - smaller;
+
       const withinTolerance = difference <= tolerance;
 
       console.log("Ratio check:", {
@@ -104,17 +101,11 @@ const AddLiquidity = ({
         amountB: formatUnits(amountBParsed, 18),
         reserveA: formatUnits(reserveA, 18),
         reserveB: formatUnits(reserveB, 18),
-        leftSide: leftSide.toString(),
-        rightSide: rightSide.toString(),
+        ratio1: ratio1.toString(),
+        ratio2: ratio2.toString(),
         difference: difference.toString(),
         tolerance: tolerance.toString(),
-        withinTolerance: withinTolerance,
-        percentageDiff:
-          larger > 0n ? Number((difference * 10000n) / larger) / 100 : 0,
-        expectedRatio:
-          reserveA > 0n
-            ? formatUnits((reserveB * amountAParsed) / reserveA, 18)
-            : "N/A",
+        withinTolerance,
       });
 
       return withinTolerance;
@@ -152,6 +143,7 @@ const AddLiquidity = ({
         amountBDecimals: amountBDecimals.toString(),
       });
 
+      setLoadingStep(`Approving ${tokenA.symbol}...`);
       toast.info(`Approving ${tokenA.symbol}...`);
       await walletClient.writeContract({
         address: tokenA.tokenAddress as `0x${string}`,
@@ -161,6 +153,7 @@ const AddLiquidity = ({
         account: accountAddress as `0x${string}`,
       });
 
+      setLoadingStep(`Approving ${tokenB.symbol}...`);
       toast.info(`Approving ${tokenB.symbol}...`);
       await walletClient.writeContract({
         address: tokenB.tokenAddress as `0x${string}`,
@@ -170,6 +163,7 @@ const AddLiquidity = ({
         account: accountAddress as `0x${string}`,
       });
 
+      setLoadingStep("Adding liquidity...");
       toast.info("Adding liquidity...");
       const hash = await walletClient.writeContract({
         address: poolAddress as `0x${string}`,
@@ -179,6 +173,7 @@ const AddLiquidity = ({
         account: accountAddress as `0x${string}`,
       });
 
+      setLoadingStep("Confirming transaction...");
       toast.info("Transaction submitted...");
       await publicClient.waitForTransactionReceipt({
         hash,
@@ -195,6 +190,7 @@ const AddLiquidity = ({
       toast.error("Failed to add liquidity");
     } finally {
       setLoading(false);
+      setLoadingStep("");
     }
   };
 
@@ -205,13 +201,14 @@ const AddLiquidity = ({
     }
 
     try {
+      setLoadingQuote(true);
       const amountADecimals = parseUnits(amountA, 18);
 
       const quoteB = (await publicClient.readContract({
         address: poolAddress as `0x${string}`,
         abi: PoolAbi,
         functionName: "liquidityQuote",
-        args: [amountADecimals],
+        args: [tokenA.tokenAddress as Address, amountADecimals],
       })) as bigint;
 
       const quotedAmountB = formatUnits(quoteB, 18);
@@ -236,8 +233,10 @@ const AddLiquidity = ({
           calculatedAmountB: formatUnits(calculatedAmountB, 18),
         });
       }
+    } finally {
+      setLoadingQuote(false);
     }
-  }, [amountA, poolAddress, reserves]);
+  }, [amountA, poolAddress, reserves, tokenA.tokenAddress]);
 
   const handleAmountAChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -261,74 +260,191 @@ const AddLiquidity = ({
     }
   }, [amountA, getLiquidityQuote]);
 
+  const isValidRatio = amountA && amountB ? checkRatio(amountA, amountB) : true;
+  const isInitialLiquidity =
+    reserves && reserves.reserveA === 0n && reserves.reserveB === 0n;
+
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="w-fit font-semibold flex items-center gap-2 px-3 py-2 text-base sm:text-base md:text-lg sm:px-4 sm:py-2">
-          <PlusCircle className="w-5 h-5" />
+        <Button className="w-full font-semibold flex items-center justify-center gap-2 px-4 py-3 text-sm sm:text-base rounded-lg shadow-sm hover:shadow-md transition-all duration-200 min-h-[44px] active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90">
+          <PlusCircle className="w-5 h-5 shrink-0 text-primary-foreground" />
           <span className="hidden xs:inline">Add Liquidity</span>
           <span className="inline xs:hidden">Add</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md w-full p-4 sm:p-6 rounded-2xl text-sm sm:text-base">
-        <DialogHeader>
-          <DialogTitle>Add Liquidity</DialogTitle>
-          <DialogDescription>
-            {reserves && reserves.reserveA === 0n && reserves.reserveB === 0n
-              ? `Provide equal amounts of ${tokenA?.symbol} and ${tokenB?.symbol} for initial liquidity`
-              : `Provide liquidity maintaining the current ratio of ${tokenA?.symbol} and ${tokenB?.symbol}`}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-6 mt-2">
-          {reserves && reserves.reserveA > 0n && reserves.reserveB > 0n && (
-            <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-              Current ratio: 1 {tokenA?.symbol} ={" "}
-              {formatUnits(
-                (reserves.reserveB * parseUnits("1", 18)) / reserves.reserveA,
-                18
-              )}{" "}
-              {tokenB?.symbol}
+      <DialogContent className="w-[95vw] max-w-lg mx-auto p-0 rounded-xl border-0 shadow-2xl overflow-hidden bg-card text-card-foreground">
+        <div className=" px-6 py-4 ">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+              <PlusCircle className="w-6 h-6 text-primary" />
+              Add Liquidity
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+              {isInitialLiquidity
+                ? `Provide equal amounts of ${tokenA?.symbol} and ${tokenB?.symbol} for initial liquidity`
+                : `Provide liquidity maintaining the current ratio of ${tokenA?.symbol} and ${tokenB?.symbol}`}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {loadingReserves && (
+            <div className="bg-accent/10 border border-accent rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
+                <div>
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Loading pool information...
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="flex flex-row gap-4">
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-sm font-medium">
-                Amount {tokenA?.symbol}
+          {!loadingReserves &&
+            reserves &&
+            reserves.reserveA > 0n &&
+            reserves.reserveB > 0n && (
+              <div className="bg-accent/10 border border-accent rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0"></div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                      Current Pool Ratio
+                    </p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      1 {tokenA?.symbol} ={" "}
+                      {formatUnits(
+                        (reserves.reserveB * parseUnits("1", 18)) /
+                          reserves.reserveA,
+                        18
+                      )}{" "}
+                      {tokenB?.symbol}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          <div className="space-y-4 sm:space-y-0 sm:flex sm:gap-4">
+            <div className="flex-1 space-y-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {tokenA?.symbol} Amount
               </label>
-              <Input
-                placeholder={`Enter ${tokenA?.symbol} amount`}
-                type="number"
-                value={amountA}
-                onChange={handleAmountAChange}
-              />
+              <div className="relative">
+                <Input
+                  placeholder={`Enter ${tokenA?.symbol} amount`}
+                  type="number"
+                  value={amountA}
+                  onChange={handleAmountAChange}
+                  className={`h-12 text-base border-2 transition-all duration-200 ${
+                    amountA && !isValidRatio
+                      ? "border-red-300 focus:border-red-500 bg-red-50 dark:bg-red-900/20"
+                      : "border-gray-200 focus:border-[var(--color-primary)] hover:border-gray-300"
+                  }`}
+                  disabled={loading || loadingReserves}
+                />
+                {tokenA && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                      {tokenA.symbol}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-sm font-medium">
-                Amount {tokenB?.symbol}
+
+            <div className="flex-1 space-y-2">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {tokenB?.symbol} Amount
               </label>
-              <Input
-                placeholder={`Enter ${tokenB?.symbol} amount`}
-                type="number"
-                value={amountB}
-                onChange={handleAmountBChange}
-              />
+              <div className="relative">
+                <Input
+                  placeholder={`Enter ${tokenB?.symbol} amount`}
+                  type="number"
+                  value={amountB}
+                  onChange={handleAmountBChange}
+                  className={`h-12 text-base border-2 transition-all duration-200 ${
+                    amountB && !isValidRatio
+                      ? "border-red-300 focus:border-red-500 bg-red-50 dark:bg-red-900/20"
+                      : "border-gray-200 focus:border-[var(--color-primary)] hover:border-gray-300"
+                  }`}
+                  disabled={loading || loadingReserves}
+                />
+                {tokenB && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                    {loadingQuote && (
+                      <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    )}
+                    <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                      {tokenB.symbol}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {amountA && amountB && !checkRatio(amountA, amountB) && (
-            <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
-              ⚠️ Invalid ratio! The amounts don't match the required pool ratio.
+          {amountA && amountB && !isValidRatio && !loadingQuote && (
+            <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <svg
+                  className="w-5 h-5 text-red-500 mt-0.5 shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-destructive mb-1">
+                    Invalid Ratio
+                  </p>
+                  <p className="text-xs text-destructive">
+                    The amounts don't match the required pool ratio. Please
+                    adjust your inputs.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {loading && loadingStep && (
+            <div className="bg-accent/10 border border-accent rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin shrink-0"></div>
+                <div>
+                  <p className="text-sm font-semibold text-accent mb-1">
+                    Processing Transaction
+                  </p>
+                  <p className="text-xs text-accent">{loadingStep}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>
-        <DialogFooter>
+
+        <DialogFooter className="px-6 py-4 border-t border-border bg-card">
           <Button
-            className="w-full mt-6 font-semibold"
-            disabled={loading || !tokenA || !tokenB}
+            className="w-full h-12 font-semibold text-base rounded-lg shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 bg-primary text-primary-foreground hover:bg-primary/90"
+            disabled={
+              loading ||
+              loadingReserves ||
+              loadingQuote ||
+              !tokenA ||
+              !tokenB ||
+              !isValidRatio
+            }
             onClick={handleAddLiquidity}
           >
-            {loading ? "Processing..." : "Add Liquidity"}
+            <div className="flex items-center gap-2">
+              <PlusCircle className="w-5 h-5" />
+              <span>Add Liquidity</span>
+            </div>
           </Button>
         </DialogFooter>
       </DialogContent>

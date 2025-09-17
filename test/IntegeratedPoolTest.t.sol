@@ -416,7 +416,7 @@ contract IntegratedPoolManagerTest is Test {
         _approvePoolForUser(user1, poolAddr);
         
         vm.startPrank(user1);
-        pool.addLiquidity(1000 ether, 1000 ether); // equal amounts for initial liquidity
+        pool.addLiquidity(1000 ether, 1000 ether);
         vm.stopPrank();
 
         uint256 quoted = pool.liquidityQuote(500 ether);

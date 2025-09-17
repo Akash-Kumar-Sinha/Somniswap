@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Droplet } from "lucide-react";
+import { Droplet, Loader2 } from "lucide-react";
 import { parseUnits, type Address } from "viem";
 import { Button } from "./ui/button";
 import { publicClient, walletClient } from "@/utils/constant";
@@ -28,18 +28,14 @@ const PullLiquidity: React.FC<PullLiquidityProps> = ({
 
   const handleRemoveLiquidity = useCallback(async () => {
     if (!poolAddress) return;
-
     try {
       setRemoving(true);
-
       const lpTokenAddress = await publicClient.readContract({
         address: poolAddress,
         abi: PoolAbi,
         functionName: "getPoolTokenAddress",
       });
-
       console.log("LP Token Address:", lpTokenAddress);
-
       const lpTokenDecimals = Number(
         await publicClient.readContract({
           address: lpTokenAddress as Address,
@@ -47,7 +43,6 @@ const PullLiquidity: React.FC<PullLiquidityProps> = ({
           functionName: "decimals",
         })
       );
-
       await walletClient.writeContract({
         address: lpTokenAddress as Address,
         abi: ERC20_ABI,
@@ -55,14 +50,12 @@ const PullLiquidity: React.FC<PullLiquidityProps> = ({
         args: [poolAddress, parseUnits(lpBalance, lpTokenDecimals)],
         account: address as Address,
       });
-
       const request = await walletClient.writeContract({
         address: poolAddress,
         abi: PoolAbi,
         functionName: "pullLiquidityAsLp",
         account: address as Address,
       });
-
       console.log("Remove liquidity request:", request);
       toast.success("Liquidity successfully removed!");
       await fetchLpBalance();
@@ -74,21 +67,39 @@ const PullLiquidity: React.FC<PullLiquidityProps> = ({
     } finally {
       setRemoving(false);
     }
-  }, [poolAddress, lpBalance, address, fetchLpBalance]);
+  }, [
+    poolAddress,
+    lpBalance,
+    address,
+    fetchLpBalance,
+    getAllTokens,
+    fetchReserves,
+  ]);
 
   return (
     <Button
       onClick={handleRemoveLiquidity}
       disabled={removing}
-      className="w-fit font-semibold flex items-center gap-2 px-3 py-2 text-base sm:text-base md:text-lg sm:px-4 sm:py-2"
+      className="w-full font-semibold flex items-center justify-center gap-3 px-4 py-3 text-sm rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:bg-destructive/40 shadow-lg hover:shadow-xl transition-all duration-200 min-h-[44px] active:scale-95 disabled:active:scale-100 border-0"
     >
-      <Droplet className="w-5 h-5" />
-      <span className="hidden xs:inline">
-        {removing ? "Removing Liquidity…" : "Remove Liquidity"}
-      </span>
-      <span className="inline xs:hidden">
-        {removing ? "Removing…" : "Remove"}
-      </span>
+      {removing ? (
+        <>
+          <Loader2 className="animate-spin h-5 w-5 text-primary-foreground" />
+          <span className="hidden xs:inline">Removing Liquidity…</span>
+          <span className="inline xs:hidden">Removing…</span>
+        </>
+      ) : (
+        <>
+          <Droplet className="w-5 h-5 text-primary-foreground" />
+          <span className="hidden xs:inline">Remove Liquidity</span>
+          <span className="inline xs:hidden">Remove</span>
+          {lpBalance && (
+            <span className="ml-auto text-xs bg-destructive/20 text-destructive px-2 py-1 rounded-full hidden sm:inline">
+              {parseFloat(lpBalance).toFixed(4)}
+            </span>
+          )}
+        </>
+      )}
     </Button>
   );
 };

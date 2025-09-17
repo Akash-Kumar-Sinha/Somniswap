@@ -11,12 +11,24 @@ import {
 import type { ReserveState, TokenInfo } from "@/utils/types";
 import { PoolManagerAbi } from "@/contracts/abi/PoolManagerAbi";
 import { PoolAbi } from "@/contracts/abi/PoolAbi";
-import { CONTRACT_ADDRESS, publicClient, walletClient } from "@/utils/constant";
+import {
+  POOL_MANAGER_ADDRESS,
+  publicClient,
+  walletClient,
+} from "@/utils/constant";
 import { type Address, formatUnits, type Hash, parseUnits } from "viem";
 import { ERC20_ABI } from "@/contracts/abi/ERC20Abi";
 import { Input } from "./ui/input";
-import { ArrowUpDown } from "lucide-react";
+import {
+  ArrowUpDown,
+  Loader2,
+  RefreshCw,
+  TrendingUp,
+  Info,
+  Zap,
+} from "lucide-react";
 import { Label } from "./ui/label";
+import { Skeleton } from "./ui/skeleton";
 
 interface SwapProps {
   address: Address;
@@ -32,6 +44,7 @@ interface SwapProps {
   lpSupply: string;
 }
 
+
 const Swap: React.FC<SwapProps> = ({
   address,
   poolAddress,
@@ -46,25 +59,24 @@ const Swap: React.FC<SwapProps> = ({
   lpSupply,
 }) => {
   const [pairedToken, setPairedToken] = useState<TokenInfo[]>([]);
-
-  // const [lpTokenAddress, setLpTokenAddress] = useState<Address | null>(null);
-
   const [amountIn, setAmountIn] = useState<string>("");
   const [amountOut, setAmountOut] = useState<string>("");
   const [isFetching, setIsFetching] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
-
-
+  const [isPairedTokensLoading, setIsPairedTokensLoading] = useState(false);
+  const [isPoolDataLoading, setIsPoolDataLoading] = useState(false);
+  const [isReservesLoading, setIsReservesLoading] = useState(false);
 
   const fetchPairedTokens = useCallback(async () => {
     if (!tokenA) {
       setPairedToken([]);
       return;
     }
+    setIsPairedTokensLoading(true);
     try {
       const pairedTokens = (await publicClient.readContract({
-        address: CONTRACT_ADDRESS,
+        address: POOL_MANAGER_ADDRESS,
         abi: PoolManagerAbi,
         functionName: "getPairedTokenInfobyAddress",
         args: [tokenA.tokenAddress],
@@ -72,6 +84,8 @@ const Swap: React.FC<SwapProps> = ({
       setPairedToken(pairedTokens);
     } catch (error) {
       console.error("Error fetching paired tokens:", error);
+    } finally {
+      setIsPairedTokensLoading(false);
     }
   }, [tokenA]);
 
@@ -79,32 +93,9 @@ const Swap: React.FC<SwapProps> = ({
     fetchPairedTokens();
   }, [fetchPairedTokens]);
 
-
-
-  // const fetchLpTokenAddress = useCallback(async () => {
-  //   if (!poolAddress) {
-  //     setLpTokenAddress(null);
-  //     return;
-  //   }
-  //   try {
-  //     const addr = (await publicClient.readContract({
-  //       address: poolAddress as Address,
-  //       abi: PoolAbi,
-  //       functionName: "getPoolTokenAddress",
-  //     })) as Address;
-  //     setLpTokenAddress(addr);
-  //   } catch (error) {
-  //     console.error("Error fetching LP token address:", error);
-  //     setLpTokenAddress(null);
-  //   }
-  // }, [poolAddress]);
-
-  // useEffect(() => {
-  //   fetchLpTokenAddress();
-  // }, [fetchLpTokenAddress]);
-
   const fetchPoolSwapTokens = useCallback(async () => {
     if (!poolAddress) return;
+    setIsPoolDataLoading(true);
     try {
       const [tA, tB] = (await publicClient.readContract({
         address: poolAddress as Address,
@@ -114,6 +105,8 @@ const Swap: React.FC<SwapProps> = ({
       console.log("Pool swap tokens:", tA, tB);
     } catch (error) {
       console.error("Error fetching pool swap tokens:", error);
+    } finally {
+      setIsPoolDataLoading(false);
     }
   }, [poolAddress]);
 
@@ -165,7 +158,9 @@ const Swap: React.FC<SwapProps> = ({
       console.log("Transaction confirmed:", receipt);
       toast.success("Swap transaction confirmed!");
 
-      fetchReserves();
+      setIsReservesLoading(true);
+      await fetchReserves();
+      setIsReservesLoading(false);
       setAmountIn("");
       setAmountOut("");
     } catch (error) {
@@ -184,7 +179,9 @@ const Swap: React.FC<SwapProps> = ({
     setTokenB(tokenA);
     setAmountIn("");
     setAmountOut("");
+    setIsReservesLoading(true);
     await fetchReserves();
+    setIsReservesLoading(false);
   };
 
   const fetchQuote = useCallback(async () => {
@@ -226,35 +223,93 @@ const Swap: React.FC<SwapProps> = ({
     }
   }, [amountIn, tokenA, tokenB, poolAddress]);
 
-  return (
-    <div className="flex items-center justify-center min-h-[70vh] bg-background">
-      <div className="relative w-full max-w-lg bg-card rounded-2xl shadow-2xl border border-border p-4 sm:p-8">
-        <h1 className="text-3xl font-extrabold mb-2 text-center text-[var(--color-primary)] tracking-tight">
-          Somnia Swap
-        </h1>
-        <p className="text-base text-center mb-4 text-purple-500 font-medium">
-          If a pool does not exist, please create one.
-        </p>
+  useEffect(() => {
+    if (!amountIn || !tokenA || !tokenB || !poolAddress) {
+      setAmountOut("");
+      return;
+    }
 
-        {poolAddress && (
-          <p className="mb-4 text-base text-center font-semibold text-[var(--color-primary)]">
-            {tokenA?.symbol} / {tokenB?.symbol}:{" "}
-            <span className="font-mono">{reserves?.reserveA}</span> /{" "}
-            <span className="font-mono">{reserves?.reserveB}</span>
+    const timer = setTimeout(() => {
+      fetchQuote();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [amountIn, fetchQuote, tokenA, tokenB, poolAddress]);
+
+  return (
+    <div className="flex items-center justify-center min-h-[70vh] bg-[var(--color-background)]">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 right-10 w-64 h-64 bg-[var(--color-primary)]/5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 left-10 w-64 h-64 bg-[var(--color-primary)]/3 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-xl bg-[var(--color-card)] backdrop-blur-xl rounded-3xl shadow-2xl border border-[var(--color-border)] p-4 sm:p-6 transition-all duration-300 hover:shadow-3xl">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl sm:text-3xl font-black text-[var(--color-primary)] tracking-tight mb-1">
+            Somnia Swap
+          </h1>
+          <p className="text-sm sm:text-base text-[var(--color-muted-foreground)] font-medium">
+            If a pool does not exist, please create one.
           </p>
-        )}
+        </div>
+
+        <div className="mb-6">
+          {poolAddress && (
+            <div className="bg-[var(--color-muted)]/50 rounded-2xl p-3 border border-[var(--color-border)]">
+              <div className="flex items-center gap-2 mb-2">
+                <Info className="w-4 h-4 text-[var(--color-primary)]" />
+                <span className="text-xs font-semibold text-[var(--color-foreground)] uppercase tracking-wide">
+                  Pool Information
+                </span>
+              </div>
+              {isReservesLoading || isPoolDataLoading ? (
+                <div className="flex items-center justify-center gap-2 text-[var(--color-muted-foreground)]">
+                  <Skeleton className="w-20 h-5" />
+                  <span>/</span>
+                  <Skeleton className="w-20 h-5" />
+                  <Loader2 className="w-4 h-4 animate-spin ml-2" />
+                  <span className="text-sm ml-2">
+                    {isPoolDataLoading
+                      ? "Loading pool data..."
+                      : "Updating reserves..."}
+                  </span>
+                </div>
+              ) : (
+                <div className="text-center flex items-center justify-center flex-wrap">
+                  <span className="text-lg font-bold text-[var(--color-primary)]">
+                    {tokenA?.symbol} / {tokenB?.symbol}
+                  </span>
+                  <div className="flex justify-center gap-2 mt-1">
+                    <span className="font-mono text-sm text-[var(--color-foreground)] bg-[var(--color-background)] px-2 py-1 rounded-lg">
+                      {reserves?.reserveA}
+                    </span>
+                    <span className="text-[var(--color-muted-foreground)]">
+                      /
+                    </span>
+                    <span className="font-mono text-sm text-[var(--color-foreground)] bg-[var(--color-background)] px-2 py-1 rounded-lg">
+                      {reserves?.reserveB}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="flex flex-col gap-3">
-          <div className="bg-muted rounded-xl p-3 flex flex-col gap-2">
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-base font-semibold text-muted-foreground">
-                From
-              </label>
-              <div className="text-sm text-muted-foreground font-mono">
-                {tokenA ? tokenA.symbol : ""}
+          <div className="bg-[var(--color-muted)]/30 rounded-2xl p-4 border border-[var(--color-border)] transition-all duration-200 hover:bg-[var(--color-muted)]/50">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-[var(--color-foreground)] uppercase tracking-wide">
+                  From
+                </label>
+                <Zap className="w-4 h-4 text-[var(--color-primary)]" />
+              </div>
+              <div className="text-xs text-[var(--color-muted-foreground)] font-mono bg-[var(--color-background)] px-2 py-1 rounded-lg">
+                {tokenA ? tokenA.symbol : "Select Token"}
               </div>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-3 items-center">
               <Select
                 value={tokenA?.tokenAddress || ""}
                 onValueChange={(val) => {
@@ -263,16 +318,24 @@ const Swap: React.FC<SwapProps> = ({
                   );
                   if (selected) setTokenA(selected);
                 }}
+                disabled={allTokens.length === 0}
               >
-                <SelectTrigger className="w-40 sm:w-56 h-10 text-base font-medium bg-card border border-border rounded-lg">
-                  <SelectValue placeholder="Select Token A" />
+                <SelectTrigger className="w-44 sm:w-52 h-10 text-sm font-medium bg-[var(--color-card)] border-2 border-[var(--color-border)] rounded-xl transition-all duration-200 hover:border-[var(--color-primary)]/50 focus:border-[var(--color-primary)]">
+                  {allTokens.length === 0 ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Loading...</span>
+                    </div>
+                  ) : (
+                    <SelectValue placeholder="Select Token A" />
+                  )}
                 </SelectTrigger>
                 <SelectContent className="max-h-60 overflow-y-auto">
                   {allTokens.map((token) => (
                     <SelectItem
                       key={token.tokenAddress}
                       value={token.tokenAddress}
-                      className="text-base"
+                      className="text-sm hover:bg-[var(--color-muted)]/50 transition-colors"
                     >
                       {token.name} ({token.symbol}) —{" "}
                       {token.tokenAddress.slice(0, 6)}...
@@ -286,33 +349,41 @@ const Swap: React.FC<SwapProps> = ({
                 value={amountIn}
                 onChange={(e) => setAmountIn(e.target.value)}
                 inputMode="decimal"
-                className="flex-1 h-10 text-lg font-mono bg-background border border-border rounded-lg px-3"
+                className="flex-1 h-10 text-base font-mono bg-[var(--color-background)] border-2 border-[var(--color-border)] rounded-xl px-3 transition-all duration-200 hover:border-[var(--color-primary)]/50 focus:border-[var(--color-primary)]"
+                disabled={isApproving || isSwapping}
               />
             </div>
           </div>
 
           <div className="flex justify-center -my-2">
             <Button
-              className="bg-accent text-accent-foreground rounded-full font-bold shadow hover:opacity-90 w-10 h-10 flex items-center justify-center"
+              className="bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:bg-[var(--color-primary)]/90 rounded-full shadow-lg w-10 h-10 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
               onClick={onSwitch}
-              disabled={!tokenA || !tokenB}
+              disabled={!tokenA || !tokenB || isReservesLoading}
               title="Switch tokens"
               size="icon"
             >
-              <ArrowUpDown />
+              {isReservesLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ArrowUpDown className="w-4 h-4" />
+              )}
             </Button>
           </div>
 
-          <div className="bg-muted rounded-xl p-3 flex flex-col gap-2">
-            <div className="flex items-center justify-between mb-1">
-              <Label className="block text-base font-semibold text-muted-foreground">
-                To
-              </Label>
-              <div className="text-sm text-muted-foreground font-mono">
-                {tokenB ? tokenB.symbol : ""}
+          <div className="bg-[var(--color-muted)]/30 rounded-2xl p-4 border border-[var(--color-border)] transition-all duration-200 hover:bg-[var(--color-muted)]/50">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs font-bold text-[var(--color-foreground)] uppercase tracking-wide">
+                  To
+                </Label>
+                <TrendingUp className="w-4 h-4 text-[var(--color-primary)]" />
+              </div>
+              <div className="text-xs text-[var(--color-muted-foreground)] font-mono bg-[var(--color-background)] px-2 py-1 rounded-lg">
+                {tokenB ? tokenB.symbol : "Select Token"}
               </div>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-3 items-center">
               <Select
                 value={tokenB?.tokenAddress || ""}
                 onValueChange={(val) => {
@@ -321,25 +392,32 @@ const Swap: React.FC<SwapProps> = ({
                   );
                   if (selected) setTokenB(selected);
                 }}
-                disabled={!tokenA || pairedToken.length === 0}
+                disabled={!tokenA || isPairedTokensLoading}
               >
-                <SelectTrigger className="w-40 sm:w-56 h-10 text-base font-medium bg-card border border-border rounded-lg">
-                  <SelectValue
-                    placeholder={
-                      tokenA
-                        ? pairedToken.length
-                          ? "Select Token B"
-                          : "No paired tokens"
-                        : "Select Token A first"
-                    }
-                  />
+                <SelectTrigger className="w-44 sm:w-52 h-10 text-sm font-medium bg-[var(--color-card)] border-2 border-[var(--color-border)] rounded-xl transition-all duration-200 hover:border-[var(--color-primary)]/50 focus:border-[var(--color-primary)]">
+                  {isPairedTokensLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Loading...</span>
+                    </div>
+                  ) : (
+                    <SelectValue
+                      placeholder={
+                        tokenA
+                          ? pairedToken.length
+                            ? "Select Token B"
+                            : "No paired tokens"
+                          : "Select Token A first"
+                      }
+                    />
+                  )}
                 </SelectTrigger>
                 <SelectContent className="max-h-60 overflow-y-auto">
                   {pairedToken.map((token) => (
                     <SelectItem
                       key={token.tokenAddress}
                       value={token.tokenAddress}
-                      className="text-base"
+                      className="text-sm hover:bg-[var(--color-muted)]/50 transition-colors"
                     >
                       {token.name} ({token.symbol}) —{" "}
                       {token.tokenAddress.slice(0, 6)}...
@@ -348,80 +426,125 @@ const Swap: React.FC<SwapProps> = ({
                   ))}
                 </SelectContent>
               </Select>
-              <Input
-                placeholder="0.0"
-                value={amountOut}
-                readOnly
-                className="flex-1 h-10 text-lg font-mono bg-background border border-border rounded-lg px-3"
-              />
-              <div
-                onClick={fetchQuote}
-                aria-disabled={!poolAddress || !amountIn}
-                className={`ml-2 text-base font-semibold text-primary px-2 py-1 rounded cursor-pointer select-none ${
-                  !poolAddress || !amountIn
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-primary/10"
-                }`}
-              >
-                Quote
+              <div className="relative flex-1">
+                <Input
+                  placeholder="0.0"
+                  value={amountOut}
+                  readOnly
+                  className="h-10 text-base font-mono bg-[var(--color-background)] border-2 border-[var(--color-border)] rounded-xl px-3 pr-14"
+                />
+                {isFetching && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <Loader2 className="w-4 h-4 animate-spin text-[var(--color-primary)]" />
+                  </div>
+                )}
               </div>
+              <Button
+                onClick={fetchQuote}
+                disabled={!poolAddress || !amountIn || isFetching}
+                size="sm"
+                variant="ghost"
+                className="h-10 w-10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-xl transition-all duration-200"
+              >
+                {isFetching ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+              </Button>
             </div>
-            <div className="text-xs text-muted-foreground mt-1 min-h-[1.25em]">
-              {isFetching
-                ? "Quoting..."
-                : amountOut
-                ? `Expected output ≈ ${amountOut} ${tokenB?.symbol ?? ""}`
-                : ""}
+            <div className="text-xs text-[var(--color-muted-foreground)] mt-2 min-h-[1.25em] transition-all duration-300">
+              {isFetching ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Fetching quote...</span>
+                </div>
+              ) : amountOut ? (
+                <div className="flex items-center gap-2 text-[var(--color-primary)] font-medium">
+                  <TrendingUp className="w-3 h-3" />
+                  <span>
+                    Expected output ≈ {amountOut} {tokenB?.symbol ?? ""}
+                  </span>
+                </div>
+              ) : (
+                ""
+              )}
             </div>
           </div>
         </div>
 
-        {!!poolAddress && reserves && tokenA && tokenB && (
-          <div className="mt-6 text-base text-muted-foreground space-y-1">
-            {/* <div className="flex justify-between">
-              <span className="font-semibold">Pool</span>
-              <span className="font-mono">
-                {poolAddress.slice(0, 8)}…{poolAddress.slice(-6)}
-              </span>
-            </div> */}
-            <div className="flex justify-between">
-              <span className="font-semibold">Fee</span>
-              <span>0.5%</span>
-            </div>
-            {/* {lpTokenAddress && (
-              <div className="flex justify-between">
-                <span className="font-semibold">LP Token</span>
-                <span className="font-mono">
-                  {lpTokenAddress.slice(0, 8)}…{lpTokenAddress.slice(-6)}
+        {!!poolAddress && tokenA && tokenB && (
+          <div className="mt-6 bg-[var(--color-muted)]/20 rounded-2xl p-4 border border-[var(--color-border)] space-y-2 transition-all duration-300">
+            <h3 className="text-base font-bold text-[var(--color-foreground)] mb-3 flex items-center gap-2">
+              <Info className="w-4 h-4 text-[var(--color-primary)]" />
+              Pool Details
+            </h3>
+
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex justify-between items-center p-2 bg-[var(--color-background)] rounded-xl hover:bg-[var(--color-muted)]/30 transition-colors">
+                <span className="font-semibold text-sm text-[var(--color-foreground)]">
+                  Trading Fee
+                </span>
+                <span className="font-mono text-xs text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-1 rounded-lg">
+                  0.5%
                 </span>
               </div>
-            )} */}
-            {lpBalance && (
-              <div className="flex justify-between">
-                <span className="font-semibold">Your LP Balance</span>
-                <span className="font-mono">{lpBalance}</span>
+
+              <div className="flex justify-between items-center p-2 bg-[var(--color-background)] rounded-xl hover:bg-[var(--color-muted)]/30 transition-colors">
+                <span className="font-semibold text-sm text-[var(--color-foreground)]">
+                  Your LP Balance
+                </span>
+                {lpBalance ? (
+                  <span className="font-mono text-sm text-[var(--color-foreground)]">
+                    {lpBalance}
+                  </span>
+                ) : (
+                  <Skeleton className="w-16 h-4" />
+                )}
               </div>
-            )}
-            {lpSupply && (
-              <div className="flex justify-between">
-                <span className="font-semibold">Total LP Supply</span>
-                <span className="font-mono">{lpSupply}</span>
+
+              <div className="flex justify-between items-center p-2 bg-[var(--color-background)] rounded-xl hover:bg-[var(--color-muted)]/30 transition-colors">
+                <span className="font-semibold text-sm text-[var(--color-foreground)]">
+                  Total LP Supply
+                </span>
+                {lpSupply ? (
+                  <span className="font-mono text-sm text-[var(--color-foreground)]">
+                    {lpSupply}
+                  </span>
+                ) : (
+                  <Skeleton className="w-16 h-4" />
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
 
         <Button
-          className="mt-8 w-full py-3 rounded-xl text-xl font-extrabold shadow hover:bg-primary/90 transition-all duration-200"
+          className="mt-6 w-full h-12 rounded-2xl text-lg font-bold shadow-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:bg-[var(--color-primary)]/90 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
           onClick={onSwap}
+          disabled={
+            isApproving ||
+            isSwapping ||
+            !poolAddress ||
+            !amountIn ||
+            !tokenA ||
+            !tokenB
+          }
         >
-          {isApproving
-            ? "Approving…"
-            : isSwapping
-            ? "Swapping…"
-            : !poolAddress
-            ? "Pool not found"
-            : "Swap"}
+          <div className="flex items-center justify-center gap-3">
+            {(isApproving || isSwapping) && (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            )}
+            <span>
+              {isApproving
+                ? "Approving…"
+                : isSwapping
+                ? "Swapping…"
+                : !poolAddress
+                ? "Pool not found"
+                : "Swap Tokens"}
+            </span>
+          </div>
         </Button>
       </div>
     </div>

@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import type { Address } from "viem";
+import { ModeToggle } from "./ModeToggle";
 
 interface HeaderProps {
   address: Address;
@@ -37,22 +38,25 @@ const Header = ({ address }: HeaderProps) => {
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge
-              onClick={copyAddress}
-              className="cursor-pointer font-mono px-3 py-1 rounded-xl shadow border border-[var(--color-border)] text-sm bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:opacity-80 transition"
-            >
-              {address
-                ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                : "Not Connected"}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent className="flex items-center gap-1">
-            <Copy className="w-4 h-4" />
-            <span className="font-mono">{address}</span>
-          </TooltipContent>
-        </Tooltip>
+        <div className="flex gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                onClick={copyAddress}
+                className="cursor-pointer font-mono px-3 py-1 rounded-xl shadow border border-[var(--color-border)] text-sm bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:opacity-80 transition"
+              >
+                {address
+                  ? `${address.slice(0, 6)}...${address.slice(-4)}`
+                  : "Not Connected"}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent className="flex items-center gap-1">
+              <Copy className="w-4 h-4" />
+              <span className="font-mono">{address}</span>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <ModeToggle />
       </div>
     </header>
   );

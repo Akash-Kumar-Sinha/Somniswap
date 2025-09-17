@@ -2,6 +2,8 @@ import { useState } from "react";
 import { createWalletClient, custom, type Address } from "viem";
 import { somniaTestnet } from "viem/chains";
 import Pool from "./Pool";
+import { Route, Routes } from "react-router-dom";
+import TokenLaunchPanel from "./TokenLaunchPanel";
 
 const Home = () => {
   const [address, setAddress] = useState<Address | null>(null);
@@ -53,7 +55,10 @@ const Home = () => {
           </button>
         </div>
       ) : (
-        <Pool address={address} />
+        <Routes>
+          <Route path="/" element={<Pool address={address} />} />
+          <Route path="/token-launch" element={<TokenLaunchPanel />} />
+        </Routes>
       )}
     </div>
   );
