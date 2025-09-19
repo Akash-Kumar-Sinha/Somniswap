@@ -1,31 +1,70 @@
-## Liquidity Pool architecture-1
+# AKSSwap - Decentralized Exchange
 
-![alt text](liquidity_pool1.png)
+A decentralized exchange (DEX) built on the Somnia Network with automated market maker (AMM) functionality for token swaps and liquidity provision.
 
-## Liquidity Pool architecture-2
+## Architecture
 
-![alt text](liquidity_pool2.png)
+### Pool Architecture Diagrams
 
-## Deployed Tokens on Sepolia Testnet
+![Liquidity Pool Architecture 1](liquidity_pool1.png)
 
-- TestStt TST token address
-```0x84faF093E7e84f951AEc10567EcA28a627fd3e51```
+### Pool Architecture Diagrams with Pool Manager
 
-- TestErc TST token address
-```0x39C44Ab0f0678078AD7920F4789A996396f9A70A```
+![Liquidity Pool Architecture 2](liquidity_pool2.png)
 
-- TSomni Somni token address
-```0x6818F6743b187572709706Dd79e495a815ab50Ae```
+## Deployed Contracts
 
-## Deployed Contracts on Sepolia Testnet
+### Somnia Network Testnet
 
-```sh
+#### Smart Contracts
+
+- **PoolManager**: `0x19E86FaE03e6ab8c11D46BbC1638bD183De2493a`
+- **TokenLauncher**: `0x1CC62993D5E51ee0BcF4508A642a7d5FB3f9057D`
+
+#### Test Tokens
+
+- **SOM Token**: `0x4D1f4Be2f102B5305ec6F27510Fae9f04cA16B1f`
+- **ESTT Token**: `0x5c93D149C738644909606E2115d34ac9E26b7973`
+- **SOMSTT Token**: `0x660d1ed17A0f905bfCAFd3449a9D56C3BA38CD66`
+
+## Deployment
+
+To deploy the PoolManager contract:
+
+```bash
 forge create --rpc-url https://dream-rpc.somnia.network --private-key <PRIVATE_KEY> --broadcast src/PoolManager.sol:PoolManager
 ```
 
-- PoolManager contract address
-```0xfa342983D775a6af6047f0B3daFf15D14984790b```
+## User Workflows
 
-6.381856540084388186 / 19
+### For Liquidity Providers
 
-0xDD422F5D61250B005178c68Ec9bA2D3884fefE09
+1. **Connect Wallet** - Connect your wallet to the DApp
+2. **Get Test Tokens** - Use the token launchpad to create test tokens or use existing ones
+3. **Create Pool** - Create a liquidity pool for your token pair if it doesn't exist
+4. **Add Liquidity**:
+   - Select two tokens for liquidity provision
+   - Specify the amount of one token
+   - DApp calculates the required amount of the second token
+   - Approve token spending
+   - Confirm transaction
+   - Receive LP tokens representing your pool share
+5. **Remove Liquidity** - Burn LP tokens to withdraw your liquidity anytime
+
+### For Traders
+
+1. **Connect Wallet** - Connect your wallet to the DApp
+2. **Select Tokens** - Choose input and output tokens for the swap
+3. **Enter Amount** - Specify the amount of input token to swap
+4. **Review Quote** - DApp calculates estimated output based on AMM formula
+5. **Execute Swap**:
+   - Approve input token spending
+   - Confirm swap transaction
+   - Receive output tokens
+
+## Notes
+
+- This application is optimized for desktop use
+- Only use test tokens on the testnet
+- Copy token addresses after creating new tokens through the launchpad
+- Mint the test tokens as needed

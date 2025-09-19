@@ -52,16 +52,12 @@ const AddLiquidity = ({
     try {
       setLoadingReserves(true);
       const [reserveA, reserveB] = (await publicClient.readContract({
-        address: poolAddress as `0x${string}`,
+        address: poolAddress as Address,
         abi: PoolAbi,
         functionName: "getPoolReserves",
       })) as [bigint, bigint];
 
       setReserves({ reserveA, reserveB });
-      console.log("Current reserves:", {
-        reserveA: formatUnits(reserveA, 18),
-        reserveB: formatUnits(reserveB, 18),
-      });
 
       return { reserveA, reserveB };
     } catch (error) {
@@ -96,18 +92,6 @@ const AddLiquidity = ({
 
       const withinTolerance = difference <= tolerance;
 
-      console.log("Ratio check:", {
-        amountA: formatUnits(amountAParsed, 18),
-        amountB: formatUnits(amountBParsed, 18),
-        reserveA: formatUnits(reserveA, 18),
-        reserveB: formatUnits(reserveB, 18),
-        ratio1: ratio1.toString(),
-        ratio2: ratio2.toString(),
-        difference: difference.toString(),
-        tolerance: tolerance.toString(),
-        withinTolerance,
-      });
-
       return withinTolerance;
     },
     [reserves]
@@ -136,41 +120,37 @@ const AddLiquidity = ({
       const amountADecimals = parseUnits(amountA, 18);
       const amountBDecimals = parseUnits(amountB, 18);
 
-      console.log("Preparing liquidity:", {
-        tokenA: tokenA.symbol,
-        tokenB: tokenB.symbol,
-        amountADecimals: amountADecimals.toString(),
-        amountBDecimals: amountBDecimals.toString(),
-      });
-
       setLoadingStep(`Approving ${tokenA.symbol}...`);
       toast.info(`Approving ${tokenA.symbol}...`);
       await walletClient.writeContract({
-        address: tokenA.tokenAddress as `0x${string}`,
+        address: tokenA.tokenAddress as Address,
         abi: ERC20_ABI,
         functionName: "approve",
         args: [poolAddress, amountADecimals],
-        account: accountAddress as `0x${string}`,
+        account: accountAddress as Address,
+        chain: walletClient.chain,
       });
 
       setLoadingStep(`Approving ${tokenB.symbol}...`);
       toast.info(`Approving ${tokenB.symbol}...`);
       await walletClient.writeContract({
-        address: tokenB.tokenAddress as `0x${string}`,
+        address: tokenB.tokenAddress as Address,
         abi: ERC20_ABI,
         functionName: "approve",
         args: [poolAddress, amountBDecimals],
-        account: accountAddress as `0x${string}`,
+        account: accountAddress as Address,
+        chain: walletClient.chain,
       });
 
       setLoadingStep("Adding liquidity...");
       toast.info("Adding liquidity...");
       const hash = await walletClient.writeContract({
-        address: poolAddress as `0x${string}`,
+        address: poolAddress as Address,
         abi: PoolAbi,
         functionName: "addLiquidity",
         args: [amountADecimals, amountBDecimals],
-        account: accountAddress as `0x${string}`,
+        account: accountAddress as Address,
+        chain: walletClient.chain,
       });
 
       setLoadingStep("Confirming transaction...");
@@ -205,21 +185,14 @@ const AddLiquidity = ({
       const amountADecimals = parseUnits(amountA, 18);
 
       const quoteB = (await publicClient.readContract({
-        address: poolAddress as `0x${string}`,
+        address: poolAddress as Address,
         abi: PoolAbi,
         functionName: "liquidityQuote",
-        args: [tokenA.tokenAddress as Address, amountADecimals],
+        args: [amountADecimals],
       })) as bigint;
 
       const quotedAmountB = formatUnits(quoteB, 18);
       setAmountB(quotedAmountB);
-
-      console.log("Liquidity quote:", {
-        inputAmountA: amountA,
-        quotedAmountB: quotedAmountB,
-        amountADecimals: amountADecimals.toString(),
-        quoteBDecimals: quoteB.toString(),
-      });
     } catch (error) {
       console.error("Error fetching liquidity quote:", error);
       if (reserves && reserves.reserveA > 0n && reserves.reserveB > 0n) {
@@ -227,16 +200,11 @@ const AddLiquidity = ({
         const calculatedAmountB =
           (amountADecimals * reserves.reserveB) / reserves.reserveA;
         setAmountB(formatUnits(calculatedAmountB, 18));
-
-        console.log("Manual calculation fallback:", {
-          inputAmountA: amountA,
-          calculatedAmountB: formatUnits(calculatedAmountB, 18),
-        });
       }
     } finally {
       setLoadingQuote(false);
     }
-  }, [amountA, poolAddress, reserves, tokenA.tokenAddress]);
+  }, [amountA, poolAddress, reserves]);
 
   const handleAmountAChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -285,6 +253,11 @@ const AddLiquidity = ({
                 ? `Provide equal amounts of ${tokenA?.symbol} and ${tokenB?.symbol} for initial liquidity`
                 : `Provide liquidity maintaining the current ratio of ${tokenA?.symbol} and ${tokenB?.symbol}`}
             </DialogDescription>
+            <div className="text-xs text-primary text-center mt-2">
+              Try switching the pool direction! In case of insufficient
+              liquidity, you may need to adjust your amounts. (A to B) or (B to
+              A)
+            </div>
           </DialogHeader>
         </div>
 

@@ -35,7 +35,6 @@ const PullLiquidity: React.FC<PullLiquidityProps> = ({
         abi: PoolAbi,
         functionName: "getPoolTokenAddress",
       });
-      console.log("LP Token Address:", lpTokenAddress);
       const lpTokenDecimals = Number(
         await publicClient.readContract({
           address: lpTokenAddress as Address,
@@ -49,14 +48,15 @@ const PullLiquidity: React.FC<PullLiquidityProps> = ({
         functionName: "approve",
         args: [poolAddress, parseUnits(lpBalance, lpTokenDecimals)],
         account: address as Address,
+        chain: walletClient.chain,
       });
-      const request = await walletClient.writeContract({
+      await walletClient.writeContract({
         address: poolAddress,
         abi: PoolAbi,
         functionName: "pullLiquidityAsLp",
         account: address as Address,
+        chain: walletClient.chain,
       });
-      console.log("Remove liquidity request:", request);
       toast.success("Liquidity successfully removed!");
       await fetchLpBalance();
       await getAllTokens();
@@ -80,24 +80,17 @@ const PullLiquidity: React.FC<PullLiquidityProps> = ({
     <Button
       onClick={handleRemoveLiquidity}
       disabled={removing}
-      className="w-full font-semibold flex items-center justify-center gap-3 px-4 py-3 text-sm rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:bg-destructive/40 shadow-lg hover:shadow-xl transition-all duration-200 min-h-[44px] active:scale-95 disabled:active:scale-100 border-0"
+      className="w-full font-semibold flex items-center justify-center gap-2 px-3 py-2 text-xs rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:bg-destructive/40 shadow-md hover:shadow-lg transition-all duration-200 min-h-[40px] active:scale-95 disabled:active:scale-100 border-0"
     >
       {removing ? (
         <>
-          <Loader2 className="animate-spin h-5 w-5 text-primary-foreground" />
-          <span className="hidden xs:inline">Removing Liquidity…</span>
-          <span className="inline xs:hidden">Removing…</span>
+          <Loader2 className="animate-spin h-4 w-4" />
+          <span>Removing...</span>
         </>
       ) : (
         <>
-          <Droplet className="w-5 h-5 text-primary-foreground" />
-          <span className="hidden xs:inline">Remove Liquidity</span>
-          <span className="inline xs:hidden">Remove</span>
-          {lpBalance && (
-            <span className="ml-auto text-xs bg-destructive/20 text-destructive px-2 py-1 rounded-full hidden sm:inline">
-              {parseFloat(lpBalance).toFixed(4)}
-            </span>
-          )}
+          <Droplet className="w-4 h-4" />
+          <span>Remove</span>
         </>
       )}
     </Button>

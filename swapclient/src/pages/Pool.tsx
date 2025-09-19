@@ -8,7 +8,7 @@ import { PoolAbi } from "@/contracts/abi/PoolAbi";
 import { PoolManagerAbi } from "@/contracts/abi/PoolManagerAbi";
 import { POOL_MANAGER_ADDRESS, publicClient } from "@/utils/constant";
 import type { ReserveState, TokenInfo } from "@/utils/types";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { formatUnits, type Address } from "viem";
 import { NavLink } from "react-router-dom";
 import {
@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Settings, ChevronDown, Rocket } from "lucide-react";
 import { DropdownMenuLabel } from "@radix-ui/react-dropdown-menu";
+import { gsap } from "gsap";
 
 interface PoolProps {
   address: Address;
@@ -34,6 +35,56 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
   const [reserves, setReserves] = useState<ReserveState | null>(null);
   const [allTokens, setAllTokens] = useState<TokenInfo[]>([]);
   const [lpSupply, setLpSupply] = useState<string>("");
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const actionsButtonRef = useRef<HTMLButtonElement>(null);
+  const swapContainerRef = useRef<HTMLDivElement>(null);
+  const backgroundElementsRef = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const tl = gsap.timeline();
+    tl.fromTo(
+      containerRef.current,
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }
+    )
+      .fromTo(
+        actionsButtonRef.current,
+        { opacity: 0, scale: 0.9, y: -10 },
+        { opacity: 1, scale: 1, y: 0, duration: 0.6, ease: "back.out(1.7)" },
+        "-=0.4"
+      )
+      .fromTo(
+        swapContainerRef.current,
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" },
+        "-=0.3"
+      );
+
+    backgroundElementsRef.current.forEach((el) => {
+      if (el) {
+        gsap.set(el, {
+          x: Math.random() * 100 + "%",
+          y: Math.random() * 100 + "%",
+        });
+
+        gsap.to(el, {
+          y: "+=20",
+          x: "+=10",
+          rotation: 360,
+          duration: 8 + Math.random() * 4,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+          delay: Math.random() * 2,
+        });
+      }
+    });
+
+    return () => {
+      tl.kill();
+    };
+  }, []);
 
   const fetchLpBalance = useCallback(async () => {
     if (!poolAddress) {
@@ -160,22 +211,58 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
   }, [fetchLpSupply]);
 
   return (
-    <div className="w-full min-h-screen flex flex-col bg-[var(--color-background)]">
+    <div
+      ref={containerRef}
+      className="relative w-full min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-muted/20 overflow-hidden"
+    >
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 animate-pulse"></div>
+
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            ref={(el) => {
+              if (backgroundElementsRef.current) {
+                backgroundElementsRef.current[i] = el;
+              }
+            }}
+            className="absolute w-4 h-4 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-full blur-sm"
+          />
+        ))}
+      </div>
+
       <Header address={address} />
 
-      <div className="relative z-10 w-full px-4 py-6 border-b border-[var(--color-border)]">
-        <div className="flex justify-center sm:justify-end">
+      <div className="relative z-10 w-full px-4 py-8 border-b border-border/50 backdrop-blur-sm">
+        <div className="flex justify-center sm:justify-end mb-8">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="w-full max-w-xs sm:w-auto font-bold flex items-center justify-center gap-3 px-8 py-4 text-base sm:text-lg rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 min-h-[56px] active:scale-95 bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:bg-[var(--color-primary)]/90 backdrop-blur-sm">
-                <Settings className="h-6 w-6" />
-                Pool Actions
-                <ChevronDown className="h-5 w-5 transition-transform duration-200 ui-open:rotate-180" />
+              <Button
+                ref={actionsButtonRef}
+                className="group relative w-full max-w-xs sm:w-auto font-bold flex items-center justify-center gap-3 px-8 py-4 text-base sm:text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 min-h-[56px] active:scale-95 bg-primary hover:bg-primary/90 text-primary-foreground backdrop-blur-sm border border-primary/30"
+                onMouseEnter={() => {
+                  gsap.to(actionsButtonRef.current, {
+                    scale: 1.02,
+                    duration: 0.3,
+                    ease: "power2.out",
+                  });
+                }}
+                onMouseLeave={() => {
+                  gsap.to(actionsButtonRef.current, {
+                    scale: 1,
+                    duration: 0.3,
+                    ease: "power2.out",
+                  });
+                }}
+              >
+                <Settings className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300" />
+                <span className="font-bold">Pool Actions</span>
+                <ChevronDown className="h-4 w-4 transition-transform duration-300 ui-open:rotate-180" />
               </Button>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent
-              className="w-72 sm:w-64 p-2 mx-4 sm:mx-0"
+              className="w-64 p-2 mx-4 sm:mx-0 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl"
               align="center"
               sideOffset={8}
             >
@@ -202,13 +289,13 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="my-2" />
 
-                  <div className="flex flex-col sm:flex-row lg:flex-col gap-2 items-stretch">
+                  <div className="flex gap-1 px-1">
                     {poolAddress && tokenA && tokenB && (
                       <DropdownMenuItem
                         className="p-0 focus:bg-transparent flex-1"
                         onSelect={(e) => e.preventDefault()}
                       >
-                        <div className="w-full px-3 py-2 rounded-md hover:bg-muted cursor-pointer transition-colors">
+                        <div className="w-full px-2 py-2 rounded-md hover:bg-muted cursor-pointer transition-colors text-center">
                           <AddLiquidity
                             tokenA={tokenA}
                             tokenB={tokenB}
@@ -227,7 +314,7 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
                         className="p-0 focus:bg-transparent flex-1"
                         onSelect={(e) => e.preventDefault()}
                       >
-                        <div className="w-full px-3 py-2 rounded-md hover:bg-muted cursor-pointer transition-colors">
+                        <div className="w-full px-2 py-2 rounded-md hover:bg-muted cursor-pointer transition-colors text-center">
                           <PullLiquidity
                             poolAddress={poolAddress}
                             address={address}
@@ -243,18 +330,18 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
                 </>
               )}
 
-              <DropdownMenuSeparator className="m-0 mt-1" />
+              <DropdownMenuSeparator className="m-0 mt-3" />
               <DropdownMenuLabel className="px-3 py-2 text-sm font-semibold text-muted-foreground">
                 Launch
               </DropdownMenuLabel>
 
-              <DropdownMenuItem className="p-0 focus:bg-transparent flex-1">
-                <div className="w-full h-full min-h-[44px]  rounded-md hover:bg-muted cursor-pointer transition-colors flex items-center">
+              <DropdownMenuItem className="p-0 focus:bg-transparent">
+                <div className="w-full h-full min-h-[44px] rounded-md hover:bg-muted cursor-pointer transition-colors flex items-center">
                   <NavLink
                     to="/token-launch"
-                    className="flex items-center gap-3 w-full min-h-[44px] px-3 py-2 rounded-md hover:bg-muted cursor-pointer  text-primary"
+                    className="flex items-center gap-3 w-full min-h-[44px] px-3 py-2 rounded-md hover:bg-muted cursor-pointer text-primary"
                   >
-                    <Rocket className="h-5 w-5 text-primary flex-shrink-0" />
+                    <Rocket className="h-4 w-4 text-primary flex-shrink-0" />
                     <span className="font-medium">Launch Your Token</span>
                   </NavLink>
                 </div>
@@ -263,22 +350,23 @@ const Pool: React.FC<PoolProps> = ({ address }) => {
           </DropdownMenu>
         </div>
 
-        <div className="flex-1 flex items-center justify-center w-full px-4 py-8">
-          <div className="w-full max-w-xl">
-            <Swap
-              address={address}
-              poolAddress={poolAddress}
-              lpBalance={lpBalance}
-              tokenA={tokenA}
-              setTokenA={setTokenA}
-              tokenB={tokenB}
-              setTokenB={setTokenB}
-              reserves={reserves}
-              fetchReserves={fetchReserves}
-              allTokens={allTokens}
-              lpSupply={lpSupply}
-            />
-          </div>
+        <div
+          ref={swapContainerRef}
+          className="flex-1 flex items-center justify-center w-full px-4 py-8"
+        >
+          <Swap
+            address={address}
+            poolAddress={poolAddress}
+            lpBalance={lpBalance}
+            tokenA={tokenA}
+            setTokenA={setTokenA}
+            tokenB={tokenB}
+            setTokenB={setTokenB}
+            reserves={reserves}
+            fetchReserves={fetchReserves}
+            allTokens={allTokens}
+            lpSupply={lpSupply}
+          />
         </div>
       </div>
     </div>

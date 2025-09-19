@@ -1,7 +1,11 @@
 import * as React from "react";
 import { TokenLanuncherAbi } from "@/contracts/abi/TokenLanuncherAbi";
-import { TOKEN_LAUNCHER_ADDRESS, walletClient } from "@/utils/constant";
-import type { Address } from "viem";
+import {
+  publicClient,
+  TOKEN_LAUNCHER_ADDRESS,
+  walletClient,
+} from "@/utils/constant";
+import { parseAbiItem, type Address } from "viem";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -15,20 +19,49 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import {
-  Rocket,
-  Coins,
-  ExternalLink,
-} from "lucide-react";
+import { Rocket, Coins, ExternalLink, Copy, CheckCircle } from "lucide-react";
 
 const TokenLaunchPanel = () => {
   const [name, setName] = React.useState("");
   const [symbol, setSymbol] = React.useState("");
   const [initialSupply, setInitialSupply] = React.useState(0);
-  const [mintTokenAddress, setMintTokenAddress] = React.useState("");
+  const [mintTokenAddress, setMintTokenAddress] = React.useState<Address>();
   const [mintAmount, setMintAmount] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const [mintLoading, setMintLoading] = React.useState(false);
+
+  const [launchedTokenAddress, setLaunchedTokenAddress] = React.useState("");
+  const [launchedTokenInfo, setLaunchedTokenInfo] = React.useState<{
+    name: string;
+    symbol: string;
+    supply: string;
+  } | null>(null);
+  const [mintedTokenAddress, setMintedTokenAddress] = React.useState("");
+  const [mintedAmount, setMintedAmount] = React.useState("");
+  const [copied, setCopied] = React.useState(false);
+  const [mintCopied, setMintCopied] = React.useState(false);
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success("Address copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy address");
+    }
+  };
+
+  const copyMintAddressToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setMintCopied(true);
+      toast.success("Address copied to clipboard!");
+      setTimeout(() => setMintCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy address");
+    }
+  };
 
   const handleLaunchToken = async () => {
     if (!name || !symbol || initialSupply <= 0) {
@@ -36,6 +69,9 @@ const TokenLaunchPanel = () => {
       return;
     }
     setLoading(true);
+
+    setLaunchedTokenAddress("");
+    setLaunchedTokenInfo(null);
     try {
       const [userAddress] = await walletClient.getAddresses();
       if (!userAddress) {
@@ -45,28 +81,72 @@ const TokenLaunchPanel = () => {
       }
       const walletAddress = userAddress as Address;
       toast("Launching token...", { description: `${name} (${symbol})` });
-      const tx = await walletClient.writeContract({
+
+      const txHash = await walletClient.writeContract({
         address: TOKEN_LAUNCHER_ADDRESS as Address,
         abi: TokenLanuncherAbi,
         functionName: "launchToken",
         args: [name, symbol, initialSupply],
         account: walletAddress as Address,
+        chain: walletClient.chain,
       });
-      toast.success("Token launch transaction sent!", {
+
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      try {
+        const logs = await publicClient.getLogs({
+          address: TOKEN_LAUNCHER_ADDRESS as Address,
+          event: parseAbiItem(
+            "event TokenLaunched(address indexed token, string name, string symbol, uint256 initialSupply, address indexed owner)"
+          ),
+          fromBlock: receipt.blockNumber,
+          toBlock: receipt.blockNumber,
+        });
+
+        if (logs.length > 0) {
+          const log = logs[0];
+
+          const newTokenAddress = log.args?.token;
+          const tokenName = log.args?.name || name;
+          const tokenSymbol = log.args?.symbol || symbol;
+          const tokenSupply = log.args?.initialSupply || initialSupply;
+
+          if (newTokenAddress) {
+            setLaunchedTokenAddress(newTokenAddress as string);
+            setLaunchedTokenInfo({
+              name: tokenName as string,
+              symbol: tokenSymbol as string,
+              supply: tokenSupply?.toString() || initialSupply.toString(),
+            });
+          }
+        }
+      } catch {
+        /* Continue with success toast even if event parsing fails */
+      }
+
+      toast.success("Token launched successfully!", {
         description: (
-          <span>
-            View on explorer:{" "}
-            <a
-              className="underline text-primary"
-              href={`https://dreamscan.somnia.network/tx/${tx}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {tx?.toString().slice(0, 10)}...
-            </a>
-          </span>
+          <div className="space-y-2 text-foreground">
+            <div>
+              Token: {name} ({symbol})
+            </div>
+            <div>
+              View transaction:{" "}
+              <a
+                className="underline text-primary hover:text-primary/80"
+                href={`https://dreamscan.somnia.network/tx/${txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {txHash?.toString().slice(0, 10)}...
+              </a>
+            </div>
+          </div>
         ),
       });
+
       setName("");
       setSymbol("");
       setInitialSupply(0);
@@ -85,6 +165,9 @@ const TokenLaunchPanel = () => {
       return;
     }
     setMintLoading(true);
+
+    setMintedTokenAddress("");
+    setMintedAmount("");
     try {
       const [userAddress] = await walletClient.getAddresses();
       if (!userAddress) {
@@ -100,23 +183,31 @@ const TokenLaunchPanel = () => {
         functionName: "mintExistingToken",
         args: [mintTokenAddress as Address, mintAmount],
         account: walletAddress as Address,
+        chain: walletClient.chain,
       });
-      toast.success("Mint transaction sent!", {
+
+      setMintedTokenAddress(mintTokenAddress as string);
+      setMintedAmount(mintAmount.toString());
+
+      toast.success("Tokens minted successfully!", {
         description: (
-          <span>
-            View on explorer:{" "}
-            <a
-              className="underline text-primary"
-              href={`https://dreamscan.somnia.network/tx/${tx}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {tx?.toString().slice(0, 10)}...
-            </a>
-          </span>
+          <div className="space-y-2 text-foreground">
+            <div>Amount: {mintAmount} tokens</div>
+            <div>
+              View transaction:{" "}
+              <a
+                className="underline text-primary hover:text-primary/80"
+                href={`https://dreamscan.somnia.network/tx/${tx}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {tx?.toString().slice(0, 10)}...
+              </a>
+            </div>
+          </div>
         ),
       });
-      setMintTokenAddress("");
+      setMintTokenAddress(undefined);
       setMintAmount(0);
     } catch (error: unknown) {
       toast.error("Error minting token", {
@@ -136,10 +227,135 @@ const TokenLaunchPanel = () => {
               Token Launcher
             </h1>
             <p className="text-lg text-[var(--color-muted-foreground)] max-w-2xl mx-auto leading-relaxed font-medium">
-              Deploy new ERC20 tokens or mint additional supply of tokens on Somnia Network <span className="text-yellow-600">(Test purpose only)</span>
+              Deploy new ERC20 tokens or mint additional supply of tokens on
+              Somnia Network{" "}
+              <span className="text-yellow-600">(Test purpose only)</span>
             </p>
           </div>
-       </div>
+        </div>
+
+        {/* Display launched token info */}
+        {launchedTokenAddress && launchedTokenInfo && (
+          <Card className="mb-6 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 rounded-3xl shadow-lg">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-green-500 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-bold text-green-800 dark:text-green-200">
+                    Token Launched Successfully!
+                  </CardTitle>
+                  <CardDescription className="text-green-600 dark:text-green-400">
+                    {launchedTokenInfo.name} ({launchedTokenInfo.symbol}) -
+                    Supply: {launchedTokenInfo.supply}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex items-center gap-2 p-3 bg-white dark:bg-gray-900 rounded-2xl border">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                    Contract Address
+                  </p>
+                  <p className="font-mono text-sm text-gray-900 dark:text-gray-100 break-all">
+                    {launchedTokenAddress}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(launchedTokenAddress)}
+                    className="shrink-0"
+                  >
+                    {copied ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      window.open(
+                        `https://dreamscan.somnia.network/address/${launchedTokenAddress}`,
+                        "_blank"
+                      )
+                    }
+                    className="shrink-0"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Display minted token info */}
+        {mintedTokenAddress && mintedAmount && (
+          <Card className="mb-6 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 rounded-3xl shadow-lg">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-500 rounded-xl flex items-center justify-center">
+                  <Coins className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-bold text-blue-800 dark:text-blue-200">
+                    Tokens Minted Successfully!
+                  </CardTitle>
+                  <CardDescription className="text-blue-600 dark:text-blue-400">
+                    {mintedAmount} tokens minted
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex items-center gap-2 p-3 bg-white dark:bg-gray-900 rounded-2xl border">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                    Token Contract Address
+                  </p>
+                  <p className="font-mono text-sm text-gray-900 dark:text-gray-100 break-all">
+                    {mintedTokenAddress}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      copyMintAddressToClipboard(mintedTokenAddress)
+                    }
+                    className="shrink-0"
+                  >
+                    {mintCopied ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      window.open(
+                        `https://dreamscan.somnia.network/address/${mintedTokenAddress}`,
+                        "_blank"
+                      )
+                    }
+                    className="shrink-0"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="launch" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6 bg-[var(--color-card)] backdrop-blur-xl border border-[var(--color-border)] rounded-2xl p-2 h-14 shadow-lg">
@@ -284,7 +500,9 @@ const TokenLaunchPanel = () => {
                       id="mint-token-address"
                       placeholder="0x1234567890abcdef..."
                       value={mintTokenAddress}
-                      onChange={(e) => setMintTokenAddress(e.target.value)}
+                      onChange={(e) =>
+                        setMintTokenAddress(e.target.value as Address)
+                      }
                       className="bg-[var(--color-input)] text-[var(--color-foreground)] h-12 rounded-2xl border-[var(--color-border)] focus:ring-4 focus:ring-[var(--color-primary)]/20 transition-all duration-200 text-base font-mono placeholder:text-[var(--color-muted-foreground)] pr-12"
                     />
                     {mintTokenAddress && (

@@ -180,7 +180,7 @@ contract IntegratedPoolManagerTest is Test {
         _approvePoolForUser(user2, poolAddr);
         
         vm.startPrank(user1);
-        pool.addLiquidity(1000 * 10**18, 1000 * 10**18);
+        pool.addLiquidity(1001 * 10**18, 1000 * 10**18);
         vm.stopPrank();
         
         uint256 swapAmount = 100 * 10**18;
