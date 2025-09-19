@@ -1,6 +1,22 @@
-# AKSSwap - Decentralized Exchange
+# Somnia Swap - Decentralized Exchange
 
 A decentralized exchange (DEX) built on the Somnia Network with automated market maker (AMM) functionality for token swaps and liquidity provision.
+
+## Overview
+
+### The Problem
+
+Somnia's ecosystem is still in its early stages, and the biggest barrier is lack of liquidity. Unlike established chains such as Ethereum, Solana, or BNB, where billions in TVL power DeFi, Somnia's observed liquidity is only in the tens of thousands across scattered pools. This makes token swaps limited, new token launches difficult, and user onboarding frustrating. Without a unified swap and liquidity hub, the ecosystem cannot scale.
+
+### The Solution
+
+SomniSwap solves this gap by creating the seamless liquidity layer Somnia needs to grow. Our platform provides:
+
+- **Unified Liquidity Hub**: Consolidates fragmented liquidity into efficient trading pairs
+- **Easy Token Launches**: Built-in token launchpad for seamless new token creation and listing
+- **Simplified User Experience**: Intuitive interface that removes barriers to DeFi participation
+- **AMM Infrastructure**: Automated market maker that ensures continuous liquidity provision
+- **Ecosystem Growth**: Foundation for Somnia's DeFi ecosystem expansion
 
 ## Architecture
 
@@ -68,3 +84,6 @@ forge create --rpc-url https://dream-rpc.somnia.network --private-key <PRIVATE_K
 - Only use test tokens on the testnet
 - Copy token addresses after creating new tokens through the launchpad
 - Mint the test tokens as needed
+
+Demo Link: [https://somnia-swap.firebaseapp.com/](https://somnia-swap.firebaseapp.com/)
+Demo Video: [https://drive.google.com/file/d/1hVJj7f3p8LREMDsfMxSsRPQTQL1qAHrx/view](https://drive.google.com/file/d/1hVJj7f3p8LREMDsfMxSsRPQTQL1qAHrx/view)
